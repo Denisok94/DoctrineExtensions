@@ -13,7 +13,6 @@ abstract class AbstractPersonalTranslation
 {
     /**
      * @var int|null
-     *
      * @ORM\Column(type="integer")
      * @ORM\Id
      * @ORM\GeneratedValue(strategy="AUTO")
