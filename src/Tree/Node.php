@@ -1,12 +1,5 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Tree;
 
 /**
@@ -14,10 +7,8 @@ namespace Gedmo\Tree;
  * Entities which in some cases needs to be identified as
  * Tree Node
  *
- * @method void  setSibling(self $node)
- * @method ?self getSibling()
- *
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 interface Node
 {
@@ -45,10 +36,4 @@ interface Node
      * @gedmo:TreeLevel
      * level of node.
      */
-
-    // @todo: In the next major release, remove this line and uncomment the method in the next line.
-    // public function setSibling(self $node): void;
-
-    // @todo: In the next major release, remove this line and uncomment the method in the next line.
-    // public function getSibling(): ?self;
 }

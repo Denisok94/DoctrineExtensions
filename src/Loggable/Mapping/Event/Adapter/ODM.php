@@ -1,15 +1,7 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Loggable\Mapping\Event\Adapter;
 
-use Gedmo\Loggable\Document\LogEntry;
 use Gedmo\Loggable\Mapping\Event\LoggableAdapter;
 use Gedmo\Mapping\Event\Adapter\ODM as BaseAdapterODM;
 
@@ -18,19 +10,29 @@ use Gedmo\Mapping\Event\Adapter\ODM as BaseAdapterODM;
  * for Loggable behavior
  *
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 final class ODM extends BaseAdapterODM implements LoggableAdapter
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getDefaultLogEntryClass()
     {
-        return LogEntry::class;
+        return 'Gedmo\\Loggable\\Document\\LogEntry';
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function isPostInsertGenerator($meta)
     {
         return false;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getNewVersion($meta, $object)
     {
         $dm = $this->getObjectManager();
@@ -38,10 +40,10 @@ final class ODM extends BaseAdapterODM implements LoggableAdapter
         $identifierField = $this->getSingleIdentifierFieldName($objectMeta);
         $objectId = $objectMeta->getReflectionProperty($identifierField)->getValue($object);
 
-        $qb = $dm->createQueryBuilder($meta->getName());
+        $qb = $dm->createQueryBuilder($meta->name);
         $qb->select('version');
         $qb->field('objectId')->equals($objectId);
-        $qb->field('objectClass')->equals($objectMeta->getName());
+        $qb->field('objectClass')->equals($objectMeta->name);
         $qb->sort('version', 'DESC');
         $qb->limit(1);
         $q = $qb->getQuery();

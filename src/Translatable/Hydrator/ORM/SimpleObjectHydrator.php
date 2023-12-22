@@ -1,17 +1,8 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Translatable\Hydrator\ORM;
 
 use Doctrine\ORM\Internal\Hydration\SimpleObjectHydrator as BaseSimpleObjectHydrator;
-use Gedmo\Exception\RuntimeException;
-use Gedmo\Tool\ORM\Hydration\EntityManagerRetriever;
 use Gedmo\Translatable\TranslatableListener;
 
 /**
@@ -21,25 +12,22 @@ use Gedmo\Translatable\TranslatableListener;
  * of the fields
  *
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
- *
- * @final since gedmo/doctrine-extensions 3.11
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 class SimpleObjectHydrator extends BaseSimpleObjectHydrator
 {
-    use EntityManagerRetriever;
-
     /**
      * State of skipOnLoad for listener between hydrations
      *
      * @see SimpleObjectHydrator::prepare()
      * @see SimpleObjectHydrator::cleanup()
      *
-     * @var bool|null
+     * @var bool
      */
     private $savedSkipOnLoad;
 
     /**
-     * @return void
+     * {@inheritdoc}
      */
     protected function prepare()
     {
@@ -50,32 +38,41 @@ class SimpleObjectHydrator extends BaseSimpleObjectHydrator
     }
 
     /**
-     * @return void
+     * {@inheritdoc}
      */
     protected function cleanup()
     {
         parent::cleanup();
         $listener = $this->getTranslatableListener();
-        $listener->setSkipOnLoad($this->savedSkipOnLoad ?? false);
+        $listener->setSkipOnLoad(null !== $this->savedSkipOnLoad ? $this->savedSkipOnLoad : false);
     }
 
     /**
      * Get the currently used TranslatableListener
      *
-     * @throws RuntimeException if listener is not found
+     * @throws \Gedmo\Exception\RuntimeException - if listener is not found
      *
      * @return TranslatableListener
      */
     protected function getTranslatableListener()
     {
-        foreach ($this->getEntityManager()->getEventManager()->getAllListeners() as $listeners) {
-            foreach ($listeners as $listener) {
+        $translatableListener = null;
+        foreach ($this->_em->getEventManager()->getListeners() as $event => $listeners) {
+            foreach ($listeners as $hash => $listener) {
                 if ($listener instanceof TranslatableListener) {
-                    return $listener;
+                    $translatableListener = $listener;
+                    break;
                 }
+            }
+            if ($translatableListener) {
+                break;
             }
         }
 
-        throw new RuntimeException('The translation listener could not be found');
+        if (is_null($translatableListener)) {
+            throw new \Gedmo\Exception\RuntimeException('The translation listener could not be found');
+        }
+
+        return $translatableListener;
     }
 }

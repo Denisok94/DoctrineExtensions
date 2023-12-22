@@ -1,45 +1,30 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Timestampable\Traits;
 
 use Doctrine\ODM\MongoDB\Mapping\Annotations as ODM;
-use Doctrine\ODM\MongoDB\Types\Type;
 use Gedmo\Mapping\Annotation as Gedmo;
 
 /**
  * Timestampable Trait, usable with PHP >= 5.4
  *
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 trait TimestampableDocument
 {
     /**
-     * @var \DateTime|null
-     *
+     * @var \DateTime
      * @Gedmo\Timestampable(on="create")
-     *
      * @ODM\Field(type="date")
      */
-    #[Gedmo\Timestampable(on: 'create')]
-    #[ODM\Field(type: Type::DATE)]
     protected $createdAt;
 
     /**
-     * @var \DateTime|null
-     *
+     * @var \DateTime
      * @Gedmo\Timestampable(on="update")
-     *
      * @ODM\Field(type="date")
      */
-    #[Gedmo\Timestampable(on: 'update')]
-    #[ODM\Field(type: Type::DATE)]
     protected $updatedAt;
 
     /**
@@ -57,7 +42,7 @@ trait TimestampableDocument
     /**
      * Returns createdAt.
      *
-     * @return \DateTime|null
+     * @return \DateTime
      */
     public function getCreatedAt()
     {
@@ -79,7 +64,7 @@ trait TimestampableDocument
     /**
      * Returns updatedAt.
      *
-     * @return \Datetime|null
+     * @return \Datetime
      */
     public function getUpdatedAt()
     {

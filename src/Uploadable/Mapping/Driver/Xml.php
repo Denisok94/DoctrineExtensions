@@ -1,12 +1,5 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Uploadable\Mapping\Driver;
 
 use Gedmo\Mapping\Driver\Xml as BaseXml;
@@ -21,21 +14,23 @@ use Gedmo\Uploadable\Mapping\Validator;
  * @author Gustavo Falco <comfortablynumb84@gmail.com>
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
  * @author Miha Vrhovnik <miha.vrhovnik@gmail.com>
- *
- * @internal
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 class Xml extends BaseXml
 {
+    /**
+     * {@inheritdoc}
+     */
     public function readExtendedMetadata($meta, array &$config)
     {
         /**
          * @var \SimpleXmlElement
          */
-        $xml = $this->_getMapping($meta->getName());
+        $xml = $this->_getMapping($meta->name);
         $xmlDoctrine = $xml;
         $xml = $xml->children(self::GEDMO_NAMESPACE_URI);
 
-        if (in_array($xmlDoctrine->getName(), ['mapped-superclass', 'entity'], true)) {
+        if ('entity' == $xmlDoctrine->getName() || 'mapped-superclass' == $xmlDoctrine->getName()) {
             if (isset($xml->uploadable)) {
                 $xmlUploadable = $xml->uploadable;
                 $config['uploadable'] = true;
@@ -85,10 +80,8 @@ class Xml extends BaseXml
                     }
                 }
 
-                $config = Validator::validateConfiguration($meta, $config);
+                Validator::validateConfiguration($meta, $config);
             }
         }
-
-        return $config;
     }
 }

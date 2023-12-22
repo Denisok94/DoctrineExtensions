@@ -1,22 +1,15 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\References\Mapping\Event\Adapter;
 
 use Doctrine\ODM\MongoDB\DocumentManager as MongoDocumentManager;
+use Doctrine\ODM\MongoDB\Proxy\Proxy as MongoDBProxy;
 use Doctrine\ODM\PHPCR\DocumentManager as PhpcrDocumentManager;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\Persistence\Proxy as PersistenceProxy;
+use Doctrine\ORM\Proxy\Proxy as ORMProxy;
 use Gedmo\Exception\InvalidArgumentException;
 use Gedmo\Mapping\Event\Adapter\ORM as BaseAdapterORM;
 use Gedmo\References\Mapping\Event\ReferencesAdapter;
-use ProxyManager\Proxy\GhostObjectInterface;
 
 /**
  * Doctrine event adapter for ORM references behavior
@@ -24,9 +17,13 @@ use ProxyManager\Proxy\GhostObjectInterface;
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
  * @author Bulat Shakirzyanov <mallluhuct@gmail.com>
  * @author Jonathan H. Wage <jonwage@gmail.com>
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 final class ORM extends BaseAdapterORM implements ReferencesAdapter
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getIdentifier($om, $object, $single = true)
     {
         if ($om instanceof EntityManagerInterface) {
@@ -35,34 +32,34 @@ final class ORM extends BaseAdapterORM implements ReferencesAdapter
 
         if ($om instanceof MongoDocumentManager) {
             $meta = $om->getClassMetadata(get_class($object));
-            if ($object instanceof GhostObjectInterface) {
+            if ($object instanceof MongoDBProxy) {
                 $id = $om->getUnitOfWork()->getDocumentIdentifier($object);
             } else {
-                $id = $meta->getReflectionProperty($meta->getIdentifier()[0])->getValue($object);
+                $id = $meta->getReflectionProperty($meta->identifier)->getValue($object);
             }
 
             if ($single || !$id) {
                 return $id;
             }
 
-            return [$meta->getIdentifier()[0] => $id];
+            return [$meta->identifier => $id];
         }
 
         if ($om instanceof PhpcrDocumentManager) {
             $meta = $om->getClassMetadata(get_class($object));
-            assert(1 === count($meta->getIdentifier()));
-            $id = $meta->getReflectionProperty($meta->getIdentifier()[0])->getValue($object);
+            $id = $meta->getReflectionProperty($meta->identifier)->getValue($object);
 
             if ($single || !$id) {
                 return $id;
             }
 
-            return [$meta->getIdentifier()[0] => $id];
+            return [$meta->identifier => $id];
         }
-
-        return null;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getSingleReference($om, $class, $identifier)
     {
         $this->throwIfNotDocumentManager($om);
@@ -77,14 +74,17 @@ final class ORM extends BaseAdapterORM implements ReferencesAdapter
         return $om->getReference($class, $identifier);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function extractIdentifier($om, $object, $single = true)
     {
-        if ($object instanceof PersistenceProxy) {
+        if ($object instanceof ORMProxy) {
             $id = $om->getUnitOfWork()->getEntityIdentifier($object);
         } else {
             $meta = $om->getClassMetadata(get_class($object));
             $id = [];
-            foreach ($meta->getIdentifier() as $name) {
+            foreach ($meta->identifier as $name) {
                 $id[$name] = $meta->getReflectionProperty($name)->getValue($object);
                 // return null if one of identifiers is missing
                 if (!$id[$name]) {
@@ -102,15 +102,11 @@ final class ORM extends BaseAdapterORM implements ReferencesAdapter
 
     /**
      * Override so we don't get an exception. We want to allow this.
-     *
-     * @param mixed $dm
-     *
-     * @phpstan-assert MongoDocumentManager|PhpcrDocumentManager $dm
      */
-    private function throwIfNotDocumentManager($dm): void
+    private function throwIfNotDocumentManager($dm)
     {
         if (!($dm instanceof MongoDocumentManager) && !($dm instanceof PhpcrDocumentManager)) {
-            throw new InvalidArgumentException(sprintf('Expected a %s or %s instance but got "%s"', MongoDocumentManager::class, 'Doctrine\ODM\PHPCR\DocumentManager', is_object($dm) ? get_class($dm) : gettype($dm)));
+            throw new InvalidArgumentException(sprintf('Expected a %s or %s instance but got "%s"', 'Doctrine\ODM\MongoDB\DocumentManager', 'Doctrine\ODM\PHPCR\DocumentManager', is_object($dm) ? get_class($dm) : gettype($dm)));
         }
     }
 }

@@ -18,7 +18,7 @@ Content:
 Starting from **doctrine2.1.x** versions you have to import all used annotations
 by an **use** statement, see example bellow:
 
-```php
+``` php
 namespace MyApp\Entity;
 
 use Gedmo\Mapping\Annotation as Gedmo; // this will be like an alias for Gedmo extensions annotations
@@ -63,9 +63,9 @@ New annotation reader does not depend on any namespaces, for that reason you can
 single reader instance for whole project. The example bellow shows how to setup the
 mapping and listeners:
 
-**Note:** using this repository you can test and check the [example demo configuration](../example/em.php)
+**Note:** using this repository you can test and check the [example demo configuration](https://github.com/Atlantic18/DoctrineExtensions/tree/main/example/em.php)
 
-```php
+``` php
 <?php
 // WARNING: setup, assumes that autoloaders are set
 
@@ -92,7 +92,7 @@ $annotationDriver = new Doctrine\ORM\Mapping\Driver\AnnotationDriver(
     $cachedAnnotationReader, // our cached annotation reader
     array(__DIR__.'/app/Entity') // paths to look in
 );
-// NOTE: driver for application Entity can be different, Attribute, Xml or whatever
+// NOTE: driver for application Entity can be different, Yaml, Xml or whatever
 // register annotation driver for our application Entity namespace
 $driverChain->addDriver($annotationDriver, 'Entity');
 
@@ -149,7 +149,7 @@ $evm->addEventSubscriber($sortableListener);
 // mysql set names UTF-8 if required
 $evm->addEventSubscriber(new Doctrine\DBAL\Event\Listeners\MysqlSessionInit());
 // DBAL connection
-$driverParams = array(
+$connection = array(
     'driver' => 'pdo_mysql',
     'host' => '127.0.0.1',
     'dbname' => 'test',
@@ -157,11 +157,10 @@ $driverParams = array(
     'password' => ''
 );
 // Finally, create entity manager
-$connection = DriverManager::getConnection($driverParams, $config);
-$em = new EntityManager($connection, $config, $evm);
+$em = Doctrine\ORM\EntityManager::create($connection, $config, $evm);
 ```
 
-**Note:** that Symfony StofDoctrineExtensionsBundle does it automatically this
+**Note:** that symfony2 StofDoctrineExtensionsBundle does it automatically this
 way you will maintain a single instance of annotation reader. It relates only
 to doctrine-common-2.1.x branch and newer.
 
@@ -185,7 +184,7 @@ Is the main identificator of tree used for domain object which should **act as T
 
 example:
 
-```php
+``` php
 <?php
 /**
  * @Gedmo\Mapping\Annotation\Tree(type="nested")
@@ -203,7 +202,7 @@ relation
 
 example:
 
-```php
+``` php
 <?php
 /**
  * @Gedmo\Mapping\Annotation\TreeParent
@@ -222,7 +221,7 @@ of nestedset left values. Property must be **integer** type.
 
 example:
 
-```php
+``` php
 <?php
 /**
  * @Gedmo\Mapping\Annotation\TreeLeft
@@ -240,7 +239,7 @@ of nestedset right values. Property must be **integer** type.
 
 example:
 
-```php
+``` php
 <?php
 /**
  * @Gedmo\Mapping\Annotation\TreeRight
@@ -258,7 +257,7 @@ updating tree will cost less because each root will act as separate tree.
 
 example:
 
-```php
+``` php
 <?php
 /**
  * @Gedmo\Mapping\Annotation\TreeRoot
@@ -276,7 +275,7 @@ is depth. Can be used for indentation for instance. Property must be **integer**
 
 example:
 
-```php
+``` php
 <?php
 /**
  * @Gedmo\Mapping\Annotation\TreeLevel
@@ -298,7 +297,7 @@ extend **AbstractClosure** in order to have personal closures.
 
 example:
 
-```php
+``` php
 <?php
 /**
  * @Gedmo\Mapping\Annotation\Tree(type="closure")
@@ -328,7 +327,7 @@ translations. In large tables this can be very handy.
 
 example:
 
-```php
+``` php
 <?php
 /**
  * @Gedmo\Mapping\Annotation\TranslationEntity(class="Entity\ProductTranslation")
@@ -346,7 +345,7 @@ currently used locale. Locale can be forced through entity or set by **Translati
 
 example:
 
-```php
+``` php
 <?php
 /**
  * @Gedmo\Mapping\Annotation\Translatable
@@ -365,7 +364,7 @@ it cannot be stored in database.
 
 example:
 
-```php
+``` php
 <?php
 /**
  * @Gedmo\Mapping\Annotation\Locale
@@ -404,7 +403,7 @@ in order to synchronize updates regarding the relation changes, you will need to
 
 examples:
 
-```php
+``` php
 <?php
 /**
  * @Gedmo\Mapping\Annotation\Slug
@@ -415,7 +414,7 @@ private $slug;
 
 with TreeSlugHandler
 
-```php
+``` php
 <?php
 /**
  * @Gedmo\Mapping\Annotation\Slug(handlers={
@@ -431,7 +430,7 @@ private $slug;
 
 with **RelativeSlugHandler**:
 
-```php
+``` php
 <?php
 /**
  * Person domain object class
@@ -450,7 +449,7 @@ private $slug;
 
 if you used **RelativeSlugHandler** - relation object should use **InversedRelativeSlugHandler**:
 
-```php
+``` php
 <?php
 /**
  * Category domain object class
@@ -490,7 +489,7 @@ which would trigger an update.
 
 example:
 
-```php
+``` php
 <?php
 /**
  * @Gedmo\Mapping\Annotation\Timestampable(on="create")
@@ -532,7 +531,7 @@ this class records.
 
 example:
 
-```php
+``` php
 <?php
 /**
  * @Gedmo\Mapping\Annotation\Loggable(logEntryClass="Entity\ProductLogEntry")
@@ -551,7 +550,7 @@ a specific version.
 
 example:
 
-```php
+``` php
 <?php
 /**
  * @Gedmo\Mapping\Annotation\Versioned

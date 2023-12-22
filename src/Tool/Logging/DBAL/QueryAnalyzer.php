@@ -1,12 +1,5 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Tool\Logging\DBAL;
 
 use Doctrine\DBAL\Logging\SQLLogger;
@@ -15,10 +8,7 @@ use Doctrine\DBAL\Types\Type;
 
 /**
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
- *
- * @deprecated since gedmo/doctrine-extensions 3.5.
- *
- * @final since gedmo/doctrine-extensions 3.11
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 class QueryAnalyzer implements SQLLogger
 {
@@ -32,19 +22,21 @@ class QueryAnalyzer implements SQLLogger
     /**
      * Start time of currently executed query
      *
-     * @var float
+     * @var int
      */
-    private $queryStartTime;
+    private $queryStartTime = null;
 
     /**
      * Total execution time of all queries
+     *
+     * @var int
      */
-    private int $totalExecutionTime = 0;
+    private $totalExecutionTime = 0;
 
     /**
      * List of queries executed
      *
-     * @var string[]
+     * @var array
      */
     private $queries = [];
 
@@ -52,7 +44,7 @@ class QueryAnalyzer implements SQLLogger
      * Query execution times indexed
      * in same order as queries
      *
-     * @var float[]
+     * @var array
      */
     private $queryExecutionTimes = [];
 
@@ -67,20 +59,20 @@ class QueryAnalyzer implements SQLLogger
     }
 
     /**
-     * @return void
+     * {@inheritdoc}
      */
-    public function startQuery($sql, ?array $params = null, ?array $types = null)
+    public function startQuery($sql, array $params = null, array $types = null)
     {
         $this->queryStartTime = microtime(true);
         $this->queries[] = $this->generateSql($sql, $params, $types);
     }
 
     /**
-     * @return void
+     * {@inheritdoc}
      */
     public function stopQuery()
     {
-        $ms = (int) (round(microtime(true) - $this->queryStartTime, 4) * 1000);
+        $ms = round(microtime(true) - $this->queryStartTime, 4) * 1000;
         $this->queryExecutionTimes[] = $ms;
         $this->totalExecutionTime += $ms;
     }
@@ -146,7 +138,7 @@ class QueryAnalyzer implements SQLLogger
     /**
      * Get total execution time of queries
      *
-     * @return float
+     * @return int
      */
     public function getTotalExecutionTime()
     {
@@ -156,7 +148,7 @@ class QueryAnalyzer implements SQLLogger
     /**
      * Get all queries
      *
-     * @return string[]
+     * @return array
      */
     public function getExecutedQueries()
     {
@@ -176,7 +168,7 @@ class QueryAnalyzer implements SQLLogger
     /**
      * Get all query execution times
      *
-     * @return float[]
+     * @return array
      */
     public function getExecutionTimes()
     {
@@ -186,18 +178,21 @@ class QueryAnalyzer implements SQLLogger
     /**
      * Create the SQL with mapped parameters
      *
-     * @param array<int|string, mixed>|null       $params
-     * @param array<int|string, string|Type>|null $types
+     * @param string     $sql
+     * @param array|null $params
+     * @param array|null $types
+     *
+     * @return string
      */
-    private function generateSql(string $sql, ?array $params, ?array $types): string
+    private function generateSql($sql, $params, $types)
     {
-        if (null === $params || [] === $params) {
+        if (null === $params || !count($params)) {
             return $sql;
         }
         $converted = $this->getConvertedParams($params, $types);
         if (is_int(key($params))) {
             $index = key($converted);
-            $sql = preg_replace_callback('@\?@sm', static function ($match) use (&$index, $converted) {
+            $sql = preg_replace_callback('@\?@sm', function ($match) use (&$index, $converted) {
                 return $converted[$index++];
             }, $sql);
         } else {
@@ -212,12 +207,12 @@ class QueryAnalyzer implements SQLLogger
     /**
      * Get the converted parameter list
      *
-     * @param array<int|string, mixed>       $params
-     * @param array<int|string, string|Type> $types
+     * @param array $params
+     * @param array $types
      *
-     * @return array<int|string, mixed>
+     * @return array
      */
-    private function getConvertedParams(array $params, array $types): array
+    private function getConvertedParams($params, $types)
     {
         $result = [];
         foreach ($params as $position => $value) {
@@ -230,16 +225,17 @@ class QueryAnalyzer implements SQLLogger
                     $value = $type->convertToDatabaseValue($value, $this->platform);
                 }
             } else {
-                if ($value instanceof \DateTimeInterface) {
+                // Remove `$value instanceof \DateTime` check when PHP version is bumped to >=5.5
+                if (is_object($value) && ($value instanceof \DateTime || $value instanceof \DateTimeInterface)) {
                     $value = $value->format($this->platform->getDateTimeFormatString());
-                } elseif (null !== $value) {
+                } elseif (!is_null($value)) {
                     $type = Type::getType(gettype($value));
                     $value = $type->convertToDatabaseValue($value, $this->platform);
                 }
             }
             if (is_string($value)) {
                 $value = "'{$value}'";
-            } elseif (null === $value) {
+            } elseif (is_null($value)) {
                 $value = 'NULL';
             }
             $result[$position] = $value;

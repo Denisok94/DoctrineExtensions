@@ -1,34 +1,28 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Sluggable\Mapping\Event\Adapter;
 
 use Doctrine\ORM\Mapping\ClassMetadataInfo;
+use Doctrine\ORM\Query;
 use Gedmo\Mapping\Event\Adapter\ORM as BaseAdapterORM;
 use Gedmo\Sluggable\Mapping\Event\SluggableAdapter;
 use Gedmo\Tool\Wrapper\AbstractWrapper;
-use Gedmo\Tool\Wrapper\EntityWrapper;
 
 /**
  * Doctrine event adapter for ORM adapted
  * for sluggable behavior
  *
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
- *
- * @final since gedmo/doctrine-extensions 3.11
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 class ORM extends BaseAdapterORM implements SluggableAdapter
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getSimilarSlugs($object, $meta, array $config, $slug)
     {
         $em = $this->getObjectManager();
-        /** @var EntityWrapper $wrapped */
         $wrapped = AbstractWrapper::wrap($object, $em);
         $qb = $em->createQueryBuilder();
         $qb->select('rec.'.$config['slug'])
@@ -51,14 +45,12 @@ class ORM extends BaseAdapterORM implements SluggableAdapter
             if (($ubase || 0 === $ubase) && !$mapping) {
                 $qb->andWhere('rec.'.$config['unique_base'].' = :unique_base');
                 $qb->setParameter(':unique_base', $ubase);
-            } elseif ($ubase && $mapping && in_array($mapping['type'], [ClassMetadataInfo::ONE_TO_ONE, ClassMetadataInfo::MANY_TO_ONE], true)) {
+            } elseif ($ubase && $mapping && in_array($mapping['type'], [ClassMetadataInfo::ONE_TO_ONE, ClassMetadataInfo::MANY_TO_ONE])) {
                 $mappedAlias = 'mapped_'.$config['unique_base'];
                 $wrappedUbase = AbstractWrapper::wrap($ubase, $em);
-                $metadata = $wrappedUbase->getMetadata();
-                assert($metadata instanceof ClassMetadataInfo);
                 $qb->innerJoin('rec.'.$config['unique_base'], $mappedAlias);
                 foreach (array_keys($mapping['targetToSourceKeyColumns']) as $i => $mappedKey) {
-                    $mappedProp = $metadata->getFieldName($mappedKey);
+                    $mappedProp = $wrappedUbase->getMetadata()->fieldNames[$mappedKey];
                     $qb->andWhere($qb->expr()->eq($mappedAlias.'.'.$mappedProp, ':assoc'.$i));
                     $qb->setParameter(':assoc'.$i, $wrappedUbase->getPropertyValue($mappedProp));
                 }
@@ -75,10 +67,15 @@ class ORM extends BaseAdapterORM implements SluggableAdapter
                 $qb->setParameter($namedId, $value, $meta->getTypeOfField($namedId));
             }
         }
+        $q = $qb->getQuery();
+        $q->setHydrationMode(Query::HYDRATE_ARRAY);
 
-        return $qb->getQuery()->getArrayResult();
+        return $q->execute();
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function replaceRelative($object, array $config, $target, $replacement)
     {
         $em = $this->getObjectManager();
@@ -99,6 +96,9 @@ class ORM extends BaseAdapterORM implements SluggableAdapter
         return $q->execute();
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function replaceInverseRelative($object, array $config, $target, $replacement)
     {
         $em = $this->getObjectManager();

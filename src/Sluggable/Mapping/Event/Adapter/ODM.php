@@ -1,14 +1,9 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Sluggable\Mapping\Event\Adapter;
 
+use Doctrine\MongoDB\Cursor;
+use Doctrine\ODM\MongoDB\Iterator\Iterator;
 use Gedmo\Mapping\Event\Adapter\ODM as BaseAdapterODM;
 use Gedmo\Sluggable\Mapping\Event\SluggableAdapter;
 use Gedmo\Tool\Wrapper\AbstractWrapper;
@@ -19,16 +14,20 @@ use MongoDB\BSON\Regex;
  * for sluggable behavior
  *
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 final class ODM extends BaseAdapterODM implements SluggableAdapter
 {
+    /**
+     * {@inheritdoc}
+     */
     public function getSimilarSlugs($object, $meta, array $config, $slug)
     {
         $dm = $this->getObjectManager();
         $wrapped = AbstractWrapper::wrap($object, $dm);
         $qb = $dm->createQueryBuilder($config['useObjectClass']);
         if (($identifier = $wrapped->getIdentifier()) && !$meta->isIdentifier($config['slug'])) {
-            $qb->field($meta->getIdentifier()[0])->notEqual($identifier);
+            $qb->field($meta->identifier)->notEqual($identifier);
         }
         $qb->field($config['slug'])->equals(new Regex('^'.preg_quote($slug, '/')));
 
@@ -46,7 +45,12 @@ final class ODM extends BaseAdapterODM implements SluggableAdapter
         $q = $qb->getQuery();
         $q->setHydrate(false);
 
-        return $q->getIterator()->toArray();
+        $result = $q->execute();
+        if ($result instanceof Cursor || $result instanceof Iterator) {
+            $result = $result->toArray();
+        }
+
+        return $result;
     }
 
     /**
@@ -68,23 +72,21 @@ final class ODM extends BaseAdapterODM implements SluggableAdapter
             ->getQuery()
         ;
         $q->setHydrate(false);
-        $result = $q->getIterator();
-        $count = 0;
-
-        foreach ($result as $targetObject) {
-            ++$count;
-            $slug = preg_replace("@^{$target}@smi", $replacement.$config['pathSeparator'], $targetObject[$config['slug']]);
-            $dm
-                ->createQueryBuilder()
-                ->updateMany($config['useObjectClass'])
-                ->field($config['slug'])->set($slug)
-                ->field($meta->getIdentifier()[0])->equals($targetObject['_id'])
-                ->getQuery()
-                ->execute()
-            ;
+        $result = $q->execute();
+        if ($result instanceof Cursor) {
+            $result = $result->toArray();
+            foreach ($result as $targetObject) {
+                $slug = preg_replace("@^{$target}@smi", $replacement.$config['pathSeparator'], $targetObject[$config['slug']]);
+                $dm
+                    ->createQueryBuilder()
+                    ->update($config['useObjectClass'])
+                    ->field($config['slug'])->set($slug)
+                    ->field($meta->identifier)->equals($targetObject['_id'])
+                    ->getQuery()
+                    ->execute()
+                ;
+            }
         }
-
-        return $count;
     }
 
     /**
@@ -100,26 +102,24 @@ final class ODM extends BaseAdapterODM implements SluggableAdapter
         $meta = $dm->getClassMetadata($config['useObjectClass']);
         $q = $dm
             ->createQueryBuilder($config['useObjectClass'])
-            ->field($config['mappedBy'].'.'.$meta->getIdentifier()[0])->equals($wrapped->getIdentifier())
+            ->field($config['mappedBy'].'.'.$meta->identifier)->equals($wrapped->getIdentifier())
             ->getQuery()
         ;
         $q->setHydrate(false);
-        $result = $q->getIterator();
-        $count = 0;
-
-        foreach ($result as $targetObject) {
-            ++$count;
-            $slug = preg_replace("@^{$replacement}@smi", $target, $targetObject[$config['slug']]);
-            $dm
-                ->createQueryBuilder()
-                ->updateMany($config['useObjectClass'])
-                ->field($config['slug'])->set($slug)
-                ->field($meta->getIdentifier()[0])->equals($targetObject['_id'])
-                ->getQuery()
-                ->execute()
-            ;
+        $result = $q->execute();
+        if ($result instanceof Cursor) {
+            $result = $result->toArray();
+            foreach ($result as $targetObject) {
+                $slug = preg_replace("@^{$replacement}@smi", $target, $targetObject[$config['slug']]);
+                $dm
+                    ->createQueryBuilder()
+                    ->update($config['useObjectClass'])
+                    ->field($config['slug'])->set($slug)
+                    ->field($meta->identifier)->equals($targetObject['_id'])
+                    ->getQuery()
+                    ->execute()
+                ;
+            }
         }
-
-        return $count;
     }
 }

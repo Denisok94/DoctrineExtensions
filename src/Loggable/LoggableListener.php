@@ -1,21 +1,8 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Loggable;
 
 use Doctrine\Common\EventArgs;
-use Doctrine\ORM\Mapping\ClassMetadata as ORMClassMetadata;
-use Doctrine\Persistence\Event\LoadClassMetadataEventArgs;
-use Doctrine\Persistence\Mapping\ClassMetadata;
-use Doctrine\Persistence\ObjectManager;
-use Gedmo\Exception\InvalidArgumentException;
-use Gedmo\Loggable\Entity\LogEntry;
 use Gedmo\Loggable\Mapping\Event\LoggableAdapter;
 use Gedmo\Mapping\MappedEventSubscriber;
 use Gedmo\Tool\Wrapper\AbstractWrapper;
@@ -25,36 +12,24 @@ use Gedmo\Tool\Wrapper\AbstractWrapper;
  *
  * @author Boussekeyt Jules <jules.boussekeyt@gmail.com>
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
- *
- * @phpstan-type LoggableConfiguration = array{
- *   loggable?: bool,
- *   logEntryClass?: class-string<LogEntryInterface<T>>,
- *   useObjectClass?: class-string,
- *   versioned?: string[],
- * }
- *
- * @phpstan-method LoggableConfiguration getConfiguration(ObjectManager $objectManager, $class)
- *
- * @method LoggableAdapter getEventAdapter(EventArgs $args)
- *
- * @phpstan-template T of Loggable|object
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 class LoggableListener extends MappedEventSubscriber
 {
     /**
-     * @deprecated use `LogEntryInterface::ACTION_CREATE` instead
+     * Create action
      */
-    public const ACTION_CREATE = LogEntryInterface::ACTION_CREATE;
+    const ACTION_CREATE = 'create';
 
     /**
-     * @deprecated use `LogEntryInterface::ACTION_UPDATE` instead
+     * Update action
      */
-    public const ACTION_UPDATE = LogEntryInterface::ACTION_UPDATE;
+    const ACTION_UPDATE = 'update';
 
     /**
-     * @deprecated use `LogEntryInterface::ACTION_REMOVE` instead
+     * Remove action
      */
-    public const ACTION_REMOVE = LogEntryInterface::ACTION_REMOVE;
+    const ACTION_REMOVE = 'remove';
 
     /**
      * Username for identification
@@ -68,9 +43,7 @@ class LoggableListener extends MappedEventSubscriber
      * key generated yet - MySQL case. These entries
      * will be updated with new keys on postPersist event
      *
-     * @var array<int, LogEntryInterface>
-     *
-     * @phpstan-var array<int, LogEntryInterface<T>>
+     * @var array
      */
     protected $pendingLogEntryInserts = [];
 
@@ -80,9 +53,7 @@ class LoggableListener extends MappedEventSubscriber
      * These are pending relations in case it does not
      * have an identifier yet
      *
-     * @var array<int, array<int, array<string, LogEntryInterface|string>>>
-     *
-     * @phpstan-var array<int, array<int, array{log: LogEntryInterface<T>, field: string}>>
+     * @var array
      */
     protected $pendingRelatedObjects = [];
 
@@ -91,27 +62,21 @@ class LoggableListener extends MappedEventSubscriber
      *
      * @param mixed $username
      *
-     * @throws InvalidArgumentException Invalid username
-     *
-     * @return void
+     * @throws \Gedmo\Exception\InvalidArgumentException Invalid username
      */
     public function setUsername($username)
     {
         if (is_string($username)) {
             $this->username = $username;
-        } elseif (is_object($username) && method_exists($username, 'getUserIdentifier')) {
-            $this->username = (string) $username->getUserIdentifier();
         } elseif (is_object($username) && method_exists($username, 'getUsername')) {
             $this->username = (string) $username->getUsername();
-        } elseif (is_object($username) && method_exists($username, '__toString')) {
-            $this->username = $username->__toString();
         } else {
-            throw new InvalidArgumentException('Username must be a string, or object should have method getUserIdentifier, getUsername or __toString');
+            throw new \Gedmo\Exception\InvalidArgumentException('Username must be a string, or object should have method: getUsername');
         }
     }
 
     /**
-     * @return string[]
+     * {@inheritdoc}
      */
     public function getSubscribedEvents()
     {
@@ -123,17 +88,28 @@ class LoggableListener extends MappedEventSubscriber
     }
 
     /**
+     * Get the LogEntry class
+     *
+     * @param string $class
+     *
+     * @return string
+     */
+    protected function getLogEntryClass(LoggableAdapter $ea, $class)
+    {
+        return isset(self::$configurations[$this->name][$class]['logEntryClass']) ?
+            self::$configurations[$this->name][$class]['logEntryClass'] :
+            $ea->getDefaultLogEntryClass();
+    }
+
+    /**
      * Maps additional metadata
-     *
-     * @param LoadClassMetadataEventArgs $eventArgs
-     *
-     * @phpstan-param LoadClassMetadataEventArgs<ClassMetadata<object>, ObjectManager> $eventArgs
      *
      * @return void
      */
     public function loadClassMetadata(EventArgs $eventArgs)
     {
-        $this->loadMetadataForObjectClass($eventArgs->getObjectManager(), $eventArgs->getClassMetadata());
+        $ea = $this->getEventAdapter($eventArgs);
+        $this->loadMetadataForObjectClass($ea->getObjectManager(), $eventArgs->getClassMetadata());
     }
 
     /**
@@ -147,7 +123,7 @@ class LoggableListener extends MappedEventSubscriber
         $ea = $this->getEventAdapter($args);
         $object = $ea->getObject();
         $om = $ea->getObjectManager();
-        $oid = spl_object_id($object);
+        $oid = spl_object_hash($object);
         $uow = $om->getUnitOfWork();
         if ($this->pendingLogEntryInserts && array_key_exists($oid, $this->pendingLogEntryInserts)) {
             $wrapped = AbstractWrapper::wrap($object, $om);
@@ -155,12 +131,12 @@ class LoggableListener extends MappedEventSubscriber
             $logEntry = $this->pendingLogEntryInserts[$oid];
             $logEntryMeta = $om->getClassMetadata(get_class($logEntry));
 
-            $id = $wrapped->getIdentifier(false, true);
+            $id = $wrapped->getIdentifier();
             $logEntryMeta->getReflectionProperty('objectId')->setValue($logEntry, $id);
             $uow->scheduleExtraUpdate($logEntry, [
                 'objectId' => [null, $id],
             ]);
-            $ea->setOriginalObjectProperty($uow, $logEntry, 'objectId', $id);
+            $ea->setOriginalObjectProperty($uow, spl_object_hash($logEntry), 'objectId', $id);
             unset($this->pendingLogEntryInserts[$oid]);
         }
         if ($this->pendingRelatedObjects && array_key_exists($oid, $this->pendingRelatedObjects)) {
@@ -177,10 +153,21 @@ class LoggableListener extends MappedEventSubscriber
                 $uow->scheduleExtraUpdate($logEntry, [
                     'data' => [$oldData, $data],
                 ]);
-                $ea->setOriginalObjectProperty($uow, $logEntry, 'data', $data);
+                $ea->setOriginalObjectProperty($uow, spl_object_hash($logEntry), 'data', $data);
             }
             unset($this->pendingRelatedObjects[$oid]);
         }
+    }
+
+    /**
+     * Handle any custom LogEntry functionality that needs to be performed
+     * before persisting it
+     *
+     * @param object $logEntry The LogEntry being persisted
+     * @param object $object   The object being Logged
+     */
+    protected function prePersistLogEntry($logEntry, $object)
+    {
     }
 
     /**
@@ -196,48 +183,19 @@ class LoggableListener extends MappedEventSubscriber
         $uow = $om->getUnitOfWork();
 
         foreach ($ea->getScheduledObjectInsertions($uow) as $object) {
-            $this->createLogEntry(LogEntryInterface::ACTION_CREATE, $object, $ea);
+            $this->createLogEntry(self::ACTION_CREATE, $object, $ea);
         }
         foreach ($ea->getScheduledObjectUpdates($uow) as $object) {
-            $this->createLogEntry(LogEntryInterface::ACTION_UPDATE, $object, $ea);
+            $this->createLogEntry(self::ACTION_UPDATE, $object, $ea);
         }
         foreach ($ea->getScheduledObjectDeletions($uow) as $object) {
-            $this->createLogEntry(LogEntryInterface::ACTION_REMOVE, $object, $ea);
+            $this->createLogEntry(self::ACTION_REMOVE, $object, $ea);
         }
     }
 
     /**
-     * Get the LogEntry class
-     *
-     * @param string $class
-     *
-     * @phpstan-param class-string $class
-     *
-     * @return string
-     *
-     * @phpstan-return class-string<LogEntryInterface<T>>
+     * {@inheritdoc}
      */
-    protected function getLogEntryClass(LoggableAdapter $ea, $class)
-    {
-        return self::$configurations[$this->name][$class]['logEntryClass'] ?? $ea->getDefaultLogEntryClass();
-    }
-
-    /**
-     * Handle any custom LogEntry functionality that needs to be performed
-     * before persisting it
-     *
-     * @param LogEntryInterface $logEntry The LogEntry being persisted
-     * @param object            $object   The object being Logged
-     *
-     * @return void
-     *
-     * @phpstan-param LogEntryInterface<T> $logEntry
-     * @phpstan-param T $object
-     */
-    protected function prePersistLogEntry($logEntry, $object)
-    {
-    }
-
     protected function getNamespace()
     {
         return __NAMESPACE__;
@@ -246,26 +204,23 @@ class LoggableListener extends MappedEventSubscriber
     /**
      * Returns an objects changeset data
      *
-     * @param LoggableAdapter   $ea
-     * @param object            $object
-     * @param LogEntryInterface $logEntry
+     * @param LoggableAdapter $ea
+     * @param object          $object
+     * @param object          $logEntry
      *
-     * @return array<string, mixed>
-     *
-     * @phpstan-param T $object
-     * @phpstan-param LogEntryInterface<T> $logEntry
+     * @return array
      */
     protected function getObjectChangeSetData($ea, $object, $logEntry)
     {
         $om = $ea->getObjectManager();
         $wrapped = AbstractWrapper::wrap($object, $om);
         $meta = $wrapped->getMetadata();
-        $config = $this->getConfiguration($om, $meta->getName());
+        $config = $this->getConfiguration($om, $meta->name);
         $uow = $om->getUnitOfWork();
         $newValues = [];
 
         foreach ($ea->getObjectChangeSet($uow, $object) as $field => $changes) {
-            if (empty($config['versioned']) || !in_array($field, $config['versioned'], true)) {
+            if (empty($config['versioned']) || !in_array($field, $config['versioned'])) {
                 continue;
             }
             $value = $changes[1];
@@ -273,7 +228,7 @@ class LoggableListener extends MappedEventSubscriber
                 if ($wrapped->isEmbeddedAssociation($field)) {
                     $value = $this->getObjectChangeSetData($ea, $value, $logEntry);
                 } else {
-                    $oid = spl_object_id($value);
+                    $oid = spl_object_hash($value);
                     $wrappedAssoc = AbstractWrapper::wrap($value, $om);
                     $value = $wrappedAssoc->getIdentifier(false);
                     if (!is_array($value) && !$value) {
@@ -296,12 +251,7 @@ class LoggableListener extends MappedEventSubscriber
      * @param string $action
      * @param object $object
      *
-     * @return LogEntryInterface|null
-     *
-     * @phpstan-param LogEntryInterface::ACTION_CREATE|LogEntryInterface::ACTION_UPDATE|LogEntryInterface::ACTION_REMOVE $action
-     * @phpstan-param T $object
-     *
-     * @phpstan-return LogEntryInterface<T>|null
+     * @return \Gedmo\Loggable\Entity\MappedSuperclass\AbstractLogEntry|null
      */
     protected function createLogEntry($action, $object, LoggableAdapter $ea)
     {
@@ -311,39 +261,39 @@ class LoggableListener extends MappedEventSubscriber
 
         // Filter embedded documents
         if (isset($meta->isEmbeddedDocument) && $meta->isEmbeddedDocument) {
-            return null;
+            return;
         }
 
-        if ($config = $this->getConfiguration($om, $meta->getName())) {
-            $logEntryClass = $this->getLogEntryClass($ea, $meta->getName());
+        if ($config = $this->getConfiguration($om, $meta->name)) {
+            $logEntryClass = $this->getLogEntryClass($ea, $meta->name);
             $logEntryMeta = $om->getClassMetadata($logEntryClass);
-            /** @var LogEntryInterface<T> $logEntry */
+            /** @var \Gedmo\Loggable\Entity\LogEntry $logEntry */
             $logEntry = $logEntryMeta->newInstance();
 
             $logEntry->setAction($action);
             $logEntry->setUsername($this->username);
-            $logEntry->setObjectClass($meta->getName());
+            $logEntry->setObjectClass($meta->name);
             $logEntry->setLoggedAt();
 
             // check for the availability of the primary key
             $uow = $om->getUnitOfWork();
-            if (LogEntryInterface::ACTION_CREATE === $action && ($ea->isPostInsertGenerator($meta) || ($meta instanceof ORMClassMetadata && $meta->isIdentifierComposite))) {
-                $this->pendingLogEntryInserts[spl_object_id($object)] = $logEntry;
+            if (self::ACTION_CREATE === $action && $ea->isPostInsertGenerator($meta)) {
+                $this->pendingLogEntryInserts[spl_object_hash($object)] = $logEntry;
             } else {
-                $logEntry->setObjectId($wrapped->getIdentifier(false, true));
+                $logEntry->setObjectId($wrapped->getIdentifier());
             }
             $newValues = [];
-            if (LogEntryInterface::ACTION_REMOVE !== $action && isset($config['versioned'])) {
+            if (self::ACTION_REMOVE !== $action && isset($config['versioned'])) {
                 $newValues = $this->getObjectChangeSetData($ea, $object, $logEntry);
                 $logEntry->setData($newValues);
             }
 
-            if (LogEntryInterface::ACTION_UPDATE === $action && [] === $newValues) {
+            if (self::ACTION_UPDATE === $action && 0 === count($newValues)) {
                 return null;
             }
 
             $version = 1;
-            if (LogEntryInterface::ACTION_CREATE !== $action) {
+            if (self::ACTION_CREATE !== $action) {
                 $version = $ea->getNewVersion($logEntryMeta, $object);
                 if (empty($version)) {
                     // was versioned later

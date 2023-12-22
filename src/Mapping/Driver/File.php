@@ -1,18 +1,10 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Mapping\Driver;
 
-use Doctrine\Persistence\Mapping\ClassMetadata;
+use Doctrine\ORM\Mapping\Driver\AbstractFileDriver;
 use Doctrine\Persistence\Mapping\Driver\FileDriver;
 use Doctrine\Persistence\Mapping\Driver\FileLocator;
-use Doctrine\Persistence\Mapping\Driver\MappingDriver;
 use Gedmo\Mapping\Driver;
 
 /**
@@ -22,6 +14,7 @@ use Gedmo\Mapping\Driver;
  * drivers.
  *
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 abstract class File implements Driver
 {
@@ -39,21 +32,9 @@ abstract class File implements Driver
 
     /**
      * original driver if it is available
-     *
-     * @var MappingDriver
      */
-    protected $_originalDriver;
+    protected $_originalDriver = null;
 
-    /**
-     * @deprecated since gedmo/doctrine-extensions 3.3, will be removed in version 4.0.
-     *
-     * @var string[]
-     */
-    protected $_paths = [];
-
-    /**
-     * @return void
-     */
     public function setLocator(FileLocator $locator)
     {
         $this->locator = $locator;
@@ -62,9 +43,7 @@ abstract class File implements Driver
     /**
      * Set the paths for file lookup
      *
-     * @deprecated since gedmo/doctrine-extensions 3.3, will be removed in version 4.0.
-     *
-     * @param string[] $paths
+     * @param array $paths
      *
      * @return void
      */
@@ -86,9 +65,45 @@ abstract class File implements Driver
     }
 
     /**
+     * Loads a mapping file with the given name and returns a map
+     * from class/entity names to their corresponding elements.
+     *
+     * @param string $file the mapping file to load
+     *
+     * @return array
+     */
+    abstract protected function _loadMappingFile($file);
+
+    /**
+     * Tries to get a mapping for a given class
+     *
+     * @param string $className
+     *
+     * @return array|object|null
+     */
+    protected function _getMapping($className)
+    {
+        //try loading mapping from original driver first
+        $mapping = null;
+        if (!is_null($this->_originalDriver)) {
+            if ($this->_originalDriver instanceof FileDriver || $this->_originalDriver instanceof AbstractFileDriver) {
+                $mapping = $this->_originalDriver->getElement($className);
+            }
+        }
+
+        //if no mapping found try to load mapping file again
+        if (is_null($mapping)) {
+            $yaml = $this->_loadMappingFile($this->locator->findMappingFile($className));
+            $mapping = $yaml[$className];
+        }
+
+        return $mapping;
+    }
+
+    /**
      * Passes in the mapping read by original driver
      *
-     * @param MappingDriver $driver
+     * @param object $driver
      *
      * @return void
      */
@@ -98,56 +113,12 @@ abstract class File implements Driver
     }
 
     /**
-     * Loads a mapping file with the given name and returns a map
-     * from class/entity names to their corresponding elements.
-     *
-     * @param string $file the mapping file to load
-     *
-     * @return array<string, array<string, mixed>|object|null>
-     *
-     * @phpstan-return array<class-string, array<string, mixed>|object|null>
-     */
-    abstract protected function _loadMappingFile($file);
-
-    /**
-     * Tries to get a mapping for a given class
-     *
-     * @param string $className
-     *
-     * @return array<string, mixed>|object|null
-     *
-     * @phpstan-param class-string $className
-     */
-    protected function _getMapping($className)
-    {
-        // try loading mapping from original driver first
-        $mapping = null;
-        if (null !== $this->_originalDriver) {
-            if ($this->_originalDriver instanceof FileDriver) {
-                $mapping = $this->_originalDriver->getElement($className);
-            }
-        }
-
-        // if no mapping found try to load mapping file again
-        if (null === $mapping) {
-            $yaml = $this->_loadMappingFile($this->locator->findMappingFile($className));
-            $mapping = $yaml[$className];
-        }
-
-        return $mapping;
-    }
-
-    /**
      * Try to find out related class name out of mapping
      *
-     * @param ClassMetadata $metadata the mapped class metadata
-     * @param string        $name     the related object class name
+     * @param $metadata - the mapped class metadata
+     * @param $name - the related object class name
      *
-     * @return string related class name or empty string if does not exist
-     *
-     * @phpstan-param class-string|string $name
-     *
-     * @phpstan-return class-string|''
+     * @return string - related class name or empty string if does not exist
      */
     protected function getRelatedClassName($metadata, $name)
     {

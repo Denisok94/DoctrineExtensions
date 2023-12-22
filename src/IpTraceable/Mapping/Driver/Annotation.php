@@ -1,16 +1,8 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\IpTraceable\Mapping\Driver;
 
 use Gedmo\Exception\InvalidMappingException;
-use Gedmo\Mapping\Annotation\IpTraceable;
 use Gedmo\Mapping\Driver\AbstractAnnotationDriver;
 
 /**
@@ -20,33 +12,35 @@ use Gedmo\Mapping\Driver\AbstractAnnotationDriver;
  * extension.
  *
  * @author Pierre-Charles Bertineau <pc.bertineau@alterphp.com>
- *
- * @internal
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 class Annotation extends AbstractAnnotationDriver
 {
     /**
      * Annotation field is ipTraceable
      */
-    public const IP_TRACEABLE = IpTraceable::class;
+    const IP_TRACEABLE = 'Gedmo\\Mapping\\Annotation\\IpTraceable';
 
     /**
      * List of types which are valid for IP
      *
-     * @var string[]
+     * @var array
      */
     protected $validTypes = [
         'string',
     ];
 
+    /**
+     * {@inheritdoc}
+     */
     public function readExtendedMetadata($meta, array &$config)
     {
         $class = $this->getMetaReflectionClass($meta);
         // property annotations
         foreach ($class->getProperties() as $property) {
-            if ($meta->isMappedSuperclass && !$property->isPrivate()
-                || $meta->isInheritedField($property->name)
-                || isset($meta->associationMappings[$property->name]['inherited'])
+            if ($meta->isMappedSuperclass && !$property->isPrivate() ||
+                $meta->isInheritedField($property->name) ||
+                isset($meta->associationMappings[$property->name]['inherited'])
             ) {
                 continue;
             }
@@ -54,17 +48,17 @@ class Annotation extends AbstractAnnotationDriver
                 $field = $property->getName();
 
                 if (!$meta->hasField($field)) {
-                    throw new InvalidMappingException("Unable to find ipTraceable [{$field}] as mapped property in entity - {$meta->getName()}");
+                    throw new InvalidMappingException("Unable to find ipTraceable [{$field}] as mapped property in entity - {$meta->name}");
                 }
-                if (!$this->isValidField($meta, $field)) {
-                    throw new InvalidMappingException("Field - [{$field}] type is not valid and must be 'string' - {$meta->getName()}");
+                if ($meta->hasField($field) && !$this->isValidField($meta, $field)) {
+                    throw new InvalidMappingException("Field - [{$field}] type is not valid and must be 'string' - {$meta->name}");
                 }
-                if (!in_array($ipTraceable->on, ['update', 'create', 'change'], true)) {
-                    throw new InvalidMappingException("Field - [{$field}] trigger 'on' is not one of [update, create, change] in class - {$meta->getName()}");
+                if (!in_array($ipTraceable->on, ['update', 'create', 'change'])) {
+                    throw new InvalidMappingException("Field - [{$field}] trigger 'on' is not one of [update, create, change] in class - {$meta->name}");
                 }
-                if ('change' === $ipTraceable->on) {
+                if ('change' == $ipTraceable->on) {
                     if (!isset($ipTraceable->field)) {
-                        throw new InvalidMappingException("Missing parameters on property - {$field}, field must be set on [change] trigger in class - {$meta->getName()}");
+                        throw new InvalidMappingException("Missing parameters on property - {$field}, field must be set on [change] trigger in class - {$meta->name}");
                     }
                     if (is_array($ipTraceable->field) && isset($ipTraceable->value)) {
                         throw new InvalidMappingException('IpTraceable extension does not support multiple value changeset detection yet.');
@@ -79,7 +73,5 @@ class Annotation extends AbstractAnnotationDriver
                 $config[$ipTraceable->on][] = $field;
             }
         }
-
-        return $config;
     }
 }

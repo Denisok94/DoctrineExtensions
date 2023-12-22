@@ -1,20 +1,11 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Tree\Hydrator\ORM;
 
+use Doctrine\Common\Collections\AbstractLazyCollection;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Internal\Hydration\ObjectHydrator;
-use Doctrine\ORM\PersistentCollection;
-use Gedmo\Exception\InvalidMappingException;
-use Gedmo\Tool\ORM\Hydration\EntityManagerRetriever;
 use Gedmo\Tree\TreeListener;
 
 /**
@@ -22,16 +13,16 @@ use Gedmo\Tree\TreeListener;
  *
  * @author Ilija Tovilo <ilija.tovilo@me.com>
  *
- * @final since gedmo/doctrine-extensions 3.11
+ * @see http://www.gediminasm.org
+ *
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 class TreeObjectHydrator extends ObjectHydrator
 {
-    use EntityManagerRetriever;
-
     /**
-     * @var array<string, mixed>
+     * @var array
      */
-    private $config = [];
+    private $config;
 
     /**
      * @var string
@@ -49,34 +40,21 @@ class TreeObjectHydrator extends ObjectHydrator
     private $childrenField;
 
     /**
-     * @param object $object
-     * @param string $property
-     * @param mixed  $value
-     *
-     * @return void
-     */
-    public function setPropertyValue($object, $property, $value)
-    {
-        $meta = $this->getEntityManager()->getClassMetadata(get_class($object));
-        $meta->getReflectionProperty($property)->setValue($object, $value);
-    }
-
-    /**
      * We hook into the `hydrateAllData` to map the children collection of the entity
      *
-     * @return array<int, object>
+     * {@inheritdoc}
      */
     protected function hydrateAllData()
     {
         $data = parent::hydrateAllData();
 
-        if ([] === $data) {
+        if (0 === count($data)) {
             return $data;
         }
 
-        $listener = $this->getTreeListener($this->getEntityManager());
+        $listener = $this->getTreeListener($this->_em);
         $entityClass = $this->getEntityClassFromHydratedData($data);
-        $this->config = $listener->getConfiguration($this->getEntityManager(), $entityClass);
+        $this->config = $listener->getConfiguration($this->_em, $entityClass);
         $this->idField = $this->getIdField($entityClass);
         $this->parentField = $this->getParentField();
         $this->childrenField = $this->getChildrenField($entityClass);
@@ -96,9 +74,9 @@ class TreeObjectHydrator extends ObjectHydrator
      * [parentId => [child1, child2, ...], ...]
      * ```
      *
-     * @param array<int, object> $nodes
+     * @param array $nodes
      *
-     * @return array<int|string, array<int, object>>
+     * @return array
      */
     protected function buildChildrenHashmap($nodes)
     {
@@ -119,10 +97,8 @@ class TreeObjectHydrator extends ObjectHydrator
     }
 
     /**
-     * @param array<int, object>                    $nodes
-     * @param array<int|string, array<int, object>> $childrenHashmap
-     *
-     * @return void
+     * @param array $nodes
+     * @param array $childrenHashmap
      */
     protected function populateChildrenArray($nodes, $childrenHashmap)
     {
@@ -135,8 +111,8 @@ class TreeObjectHydrator extends ObjectHydrator
                 $this->setPropertyValue($node, $this->childrenField, $childrenCollection);
             }
 
-            // Initialize all the children collections in order to avoid "SELECT" queries.
-            if ($childrenCollection instanceof PersistentCollection && !$childrenCollection->isInitialized()) {
+            // Mark all children collections as initialized to avoid select queries
+            if ($childrenCollection instanceof AbstractLazyCollection) {
                 $childrenCollection->setInitialized(true);
             }
 
@@ -153,9 +129,9 @@ class TreeObjectHydrator extends ObjectHydrator
     }
 
     /**
-     * @param array<int, object> $nodes
+     * @param array $nodes
      *
-     * @return array<int, object>
+     * @return array
      */
     protected function getRootNodes($nodes)
     {
@@ -170,7 +146,7 @@ class TreeObjectHydrator extends ObjectHydrator
                 $parentId = $this->getPropertyValue($parentProxy, $this->idField);
             }
 
-            if (null === $parentId || !array_key_exists($parentId, $idHashmap)) {
+            if (null === $parentId || !key_exists($parentId, $idHashmap)) {
                 $rootNodes[] = $node;
             }
         }
@@ -185,9 +161,7 @@ class TreeObjectHydrator extends ObjectHydrator
      * [node1.id => true, node2.id => true, ...]
      * ```
      *
-     * @param array<int, object> $nodes
-     *
-     * @return array<mixed, true>
+     * @return array
      */
     protected function buildIdHashmap(array $nodes)
     {
@@ -202,10 +176,6 @@ class TreeObjectHydrator extends ObjectHydrator
     }
 
     /**
-     * @param string $entityClass
-     *
-     * @phpstan-param class-string $entityClass
-     *
      * @return string
      */
     protected function getIdField($entityClass)
@@ -221,17 +191,13 @@ class TreeObjectHydrator extends ObjectHydrator
     protected function getParentField()
     {
         if (!isset($this->config['parent'])) {
-            throw new InvalidMappingException('The `parent` property is required for the TreeHydrator to work');
+            throw new \Gedmo\Exception\InvalidMappingException('The `parent` property is required for the TreeHydrator to work');
         }
 
         return $this->config['parent'];
     }
 
     /**
-     * @param string $entityClass
-     *
-     * @phpstan-param class-string $entityClass
-     *
      * @return string
      */
     protected function getChildrenField($entityClass)
@@ -254,7 +220,7 @@ class TreeObjectHydrator extends ObjectHydrator
             return $associationMapping['fieldName'];
         }
 
-        throw new InvalidMappingException('The children property could not found. It is identified through the `mappedBy` annotation to your parent property.');
+        throw new \Gedmo\Exception\InvalidMappingException('The children property could not found. It is identified through the `mappedBy` annotation to your parent property.');
     }
 
     /**
@@ -262,7 +228,7 @@ class TreeObjectHydrator extends ObjectHydrator
      */
     protected function getTreeListener(EntityManagerInterface $em)
     {
-        foreach ($em->getEventManager()->getAllListeners() as $listeners) {
+        foreach ($em->getEventManager()->getListeners() as $listeners) {
             foreach ($listeners as $listener) {
                 if ($listener instanceof TreeListener) {
                     return $listener;
@@ -270,11 +236,11 @@ class TreeObjectHydrator extends ObjectHydrator
             }
         }
 
-        throw new InvalidMappingException('Tree listener was not found on your entity manager, it must be hooked into the event manager');
+        throw new \Gedmo\Exception\InvalidMappingException('Tree listener was not found on your entity manager, it must be hooked into the event manager');
     }
 
     /**
-     * @param array<int, object> $data
+     * @param array $data
      *
      * @return string
      */
@@ -283,19 +249,19 @@ class TreeObjectHydrator extends ObjectHydrator
         $firstMappedEntity = array_values($data);
         $firstMappedEntity = $firstMappedEntity[0];
 
-        return $this->getEntityManager()->getClassMetadata(get_class($firstMappedEntity))->rootEntityName;
+        return $this->_em->getClassMetadata(get_class($firstMappedEntity))->rootEntityName;
     }
 
-    /**
-     * @param object $object
-     * @param string $property
-     *
-     * @return mixed
-     */
     protected function getPropertyValue($object, $property)
     {
-        $meta = $this->getEntityManager()->getClassMetadata(get_class($object));
+        $meta = $this->_em->getClassMetadata(get_class($object));
 
         return $meta->getReflectionProperty($property)->getValue($object);
+    }
+
+    public function setPropertyValue($object, $property, $value)
+    {
+        $meta = $this->_em->getClassMetadata(get_class($object));
+        $meta->getReflectionProperty($property)->setValue($object, $value);
     }
 }

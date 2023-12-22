@@ -1,55 +1,37 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Mapping;
 
 use Doctrine\Bundle\DoctrineBundle\Mapping\MappingDriver as DoctrineBundleMappingDriver;
-use Doctrine\Common\Annotations\Reader;
-use Doctrine\ODM\MongoDB\Mapping\ClassMetadata as DocumentClassMetadata;
-use Doctrine\ORM\Mapping\ClassMetadata as EntityClassMetadata;
-use Doctrine\ORM\Mapping\ClassMetadataInfo as LegacyEntityClassMetadata;
-use Doctrine\Persistence\Mapping\ClassMetadata;
+use Doctrine\Common\Cache\Cache;
 use Doctrine\Persistence\Mapping\Driver\DefaultFileLocator;
 use Doctrine\Persistence\Mapping\Driver\MappingDriver;
 use Doctrine\Persistence\Mapping\Driver\MappingDriverChain;
 use Doctrine\Persistence\Mapping\Driver\SymfonyFileLocator;
 use Doctrine\Persistence\ObjectManager;
-use Gedmo\Exception\RuntimeException;
 use Gedmo\Mapping\Driver\AnnotationDriverInterface;
-use Gedmo\Mapping\Driver\AttributeAnnotationReader;
-use Gedmo\Mapping\Driver\AttributeDriverInterface;
-use Gedmo\Mapping\Driver\AttributeReader;
-use Gedmo\Mapping\Driver\Chain;
 use Gedmo\Mapping\Driver\File as FileDriver;
-use Psr\Cache\CacheItemPoolInterface;
 
 /**
  * The extension metadata factory is responsible for extension driver
  * initialization and fully reading the extension metadata
  *
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
- *
- * @final since gedmo/doctrine-extensions 3.11
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 class ExtensionMetadataFactory
 {
     /**
      * Extension driver
      *
-     * @var Driver
+     * @var \Gedmo\Mapping\Driver
      */
     protected $driver;
 
     /**
      * Object manager, entity or document
      *
-     * @var ObjectManager
+     * @var object
      */
     protected $objectManager;
 
@@ -61,99 +43,72 @@ class ExtensionMetadataFactory
     protected $extensionNamespace;
 
     /**
-     * Metadata annotation reader
+     * Custom annotation reader
      *
-     * @var Reader|AttributeReader|object|null
+     * @var object
      */
     protected $annotationReader;
 
-    private ?CacheItemPoolInterface $cacheItemPool = null;
-
     /**
-     * @param Reader|AttributeReader|object|null $annotationReader
+     * Initializes extension driver
+     *
+     * @param string $extensionNamespace
+     * @param object $annotationReader
      */
-    public function __construct(ObjectManager $objectManager, string $extensionNamespace, ?object $annotationReader = null, ?CacheItemPoolInterface $cacheItemPool = null)
+    public function __construct(ObjectManager $objectManager, $extensionNamespace, $annotationReader)
     {
-        if (null !== $annotationReader && !$annotationReader instanceof Reader && !$annotationReader instanceof AttributeReader) {
-            trigger_deprecation(
-                'gedmo/doctrine-extensions',
-                '3.11',
-                'Providing an annotation reader which does not implement %s or is not an instance of %s to %s is deprecated.',
-                Reader::class,
-                AttributeReader::class,
-                static::class
-            );
-        }
-
         $this->objectManager = $objectManager;
         $this->annotationReader = $annotationReader;
         $this->extensionNamespace = $extensionNamespace;
         $omDriver = $objectManager->getConfiguration()->getMetadataDriverImpl();
         $this->driver = $this->getDriver($omDriver);
-        $this->cacheItemPool = $cacheItemPool;
     }
 
     /**
      * Reads extension metadata
      *
-     * @param ClassMetadata&(DocumentClassMetadata|EntityClassMetadata|LegacyEntityClassMetadata) $meta
+     * @param object $meta
      *
-     * @return array<string, mixed> the metadata configuration
+     * @return array - the metatada configuration
      */
     public function getExtensionMetadata($meta)
     {
         if ($meta->isMappedSuperclass) {
-            return []; // ignore mappedSuperclasses for now
+            return; // ignore mappedSuperclasses for now
         }
         $config = [];
         $cmf = $this->objectManager->getMetadataFactory();
-        $useObjectName = $meta->getName();
+        $useObjectName = $meta->name;
         // collect metadata from inherited classes
         if (null !== $meta->reflClass) {
-            foreach (array_reverse(class_parents($meta->getName())) as $parentClass) {
+            foreach (array_reverse(class_parents($meta->name)) as $parentClass) {
                 // read only inherited mapped classes
-                if ($cmf->hasMetadataFor($parentClass) || !$cmf->isTransient($parentClass)) {
-                    assert(class_exists($parentClass));
-
+                if ($cmf->hasMetadataFor($parentClass)) {
                     $class = $this->objectManager->getClassMetadata($parentClass);
-
-                    assert($class instanceof DocumentClassMetadata || $class instanceof EntityClassMetadata || $class instanceof LegacyEntityClassMetadata);
-
-                    $extendedMetadata = $this->driver->readExtendedMetadata($class, $config);
-
-                    if (\is_array($extendedMetadata)) {
-                        $config = $extendedMetadata;
-                    }
-
-                    // @todo: In the next major release remove the assignment to `$extendedMetadata`, the previous conditional
-                    // block and uncomment the following line.
-                    // $config = $this->driver->readExtendedMetadata($class, $config);
-
+                    $this->driver->readExtendedMetadata($class, $config);
                     $isBaseInheritanceLevel = !$class->isInheritanceTypeNone()
-                        && [] === $class->parentClasses
-                        && [] !== $config
+                        && !$class->parentClasses
+                        && $config
                     ;
                     if ($isBaseInheritanceLevel) {
-                        $useObjectName = $class->getName();
+                        $useObjectName = $class->name;
                     }
                 }
             }
-
-            $extendedMetadata = $this->driver->readExtendedMetadata($meta, $config);
-
-            if (\is_array($extendedMetadata)) {
-                $config = $extendedMetadata;
-            }
-
-            // @todo: In the next major release remove the assignment to `$extendedMetadata`, the previous conditional
-            // block and uncomment the following line.
-            // $config = $this->driver->readExtendedMetadata($meta, $config);
+            $this->driver->readExtendedMetadata($meta, $config);
         }
-        if ([] !== $config) {
+        if ($config) {
             $config['useObjectClass'] = $useObjectName;
         }
 
-        $this->storeConfiguration($meta->getName(), $config);
+        $cacheDriver = $cmf->getCacheDriver();
+
+        if ($cacheDriver instanceof Cache) {
+            // Cache the result, even if it's empty, to prevent re-parsing non-existent annotations.
+            $cacheId = self::getCacheId($meta->name, $this->extensionNamespace);
+
+            $cacheDriver->save($cacheId, $config);
+        }
 
         return $config;
     }
@@ -168,30 +123,33 @@ class ExtensionMetadataFactory
      */
     public static function getCacheId($className, $extensionNamespace)
     {
-        return str_replace('\\', '_', $className).'_$'.strtoupper(str_replace('\\', '_', $extensionNamespace)).'_CLASSMETADATA';
+        return $className.'\\$'.strtoupper(str_replace('\\', '_', $extensionNamespace)).'_CLASSMETADATA';
     }
 
     /**
      * Get the extended driver instance which will
      * read the metadata required by extension
      *
-     * @param MappingDriver $omDriver
+     * @param object $omDriver
      *
-     * @throws RuntimeException if driver was not found in extension
+     * @throws \Gedmo\Exception\RuntimeException if driver was not found in extension
      *
-     * @return Driver
+     * @return \Gedmo\Mapping\Driver
      */
     protected function getDriver($omDriver)
     {
         if ($omDriver instanceof DoctrineBundleMappingDriver) {
-            $omDriver = $omDriver->getDriver();
+            $propertyReflection = (new \ReflectionClass($omDriver))
+                ->getProperty('driver');
+            $propertyReflection->setAccessible(true);
+            $omDriver = $propertyReflection->getValue($omDriver);
         }
 
         $driver = null;
         $className = get_class($omDriver);
         $driverName = substr($className, strrpos($className, '\\') + 1);
-        if ($omDriver instanceof MappingDriverChain || 'DriverChain' === $driverName) {
-            $driver = new Chain();
+        if ($omDriver instanceof MappingDriverChain || 'DriverChain' == $driverName) {
+            $driver = new Driver\Chain();
             foreach ($omDriver->getDrivers() as $namespace => $nestedOmDriver) {
                 $driver->addDriver($this->getDriver($nestedOmDriver), $namespace);
             }
@@ -209,26 +167,15 @@ class ExtensionMetadataFactory
             // create driver instance
             $driverClassName = $this->extensionNamespace.'\Mapping\Driver\\'.$driverName;
             if (!class_exists($driverClassName)) {
-                $originalDriverClassName = $driverClassName;
-
-                // try to fall back to either an annotation or attribute driver depending on the available dependencies
-                if (interface_exists(Reader::class)) {
-                    $driverClassName = $this->extensionNamespace.'\Mapping\Driver\Annotation';
-                } elseif (\PHP_VERSION_ID >= 80000) {
-                    $driverClassName = $this->extensionNamespace.'\Mapping\Driver\Attribute';
-                }
-
+                $driverClassName = $this->extensionNamespace.'\Mapping\Driver\Annotation';
                 if (!class_exists($driverClassName)) {
-                    if ($originalDriverClassName !== $driverClassName) {
-                        throw new RuntimeException("Failed to create mapping driver: ({$originalDriverClassName}), the extension driver nor a fallback annotation or attribute driver could be found.");
-                    }
-
-                    throw new RuntimeException("Failed to fallback to annotation driver: ({$driverClassName}), extension driver was not found.");
+                    throw new \Gedmo\Exception\RuntimeException("Failed to fallback to annotation driver: ({$driverClassName}), extension driver was not found.");
                 }
             }
             $driver = new $driverClassName();
             $driver->setOriginalDriver($omDriver);
             if ($driver instanceof FileDriver) {
+                /* @var $driver FileDriver */
                 if ($omDriver instanceof MappingDriver) {
                     $driver->setLocator($omDriver->getLocator());
                 // BC for Doctrine 2.2
@@ -238,41 +185,11 @@ class ExtensionMetadataFactory
                     $driver->setLocator(new DefaultFileLocator($omDriver->getPaths(), $omDriver->getFileExtension()));
                 }
             }
-
             if ($driver instanceof AnnotationDriverInterface) {
-                if (null === $this->annotationReader) {
-                    throw new RuntimeException("Cannot use metadata driver ({$driverClassName}), an annotation or attribute reader was not provided.");
-                }
-
-                if ($driver instanceof AttributeDriverInterface) {
-                    if ($this->annotationReader instanceof AttributeReader) {
-                        $driver->setAnnotationReader($this->annotationReader);
-                    } else {
-                        $driver->setAnnotationReader(new AttributeAnnotationReader(new AttributeReader(), $this->annotationReader));
-                    }
-                } else {
-                    $driver->setAnnotationReader($this->annotationReader);
-                }
+                $driver->setAnnotationReader($this->annotationReader);
             }
         }
 
         return $driver;
-    }
-
-    /**
-     * @param array<string, mixed> $config
-     */
-    private function storeConfiguration(string $className, array $config): void
-    {
-        if (null === $this->cacheItemPool) {
-            return;
-        }
-
-        // Cache the result, even if it's empty, to prevent re-parsing non-existent annotations.
-        $cacheId = self::getCacheId($className, $this->extensionNamespace);
-
-        $item = $this->cacheItemPool->getItem($cacheId);
-
-        $this->cacheItemPool->save($item->set($config));
     }
 }

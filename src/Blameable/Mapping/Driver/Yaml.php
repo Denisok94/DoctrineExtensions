@@ -1,15 +1,7 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Blameable\Mapping\Driver;
 
-use Doctrine\Persistence\Mapping\ClassMetadata;
 use Gedmo\Exception\InvalidMappingException;
 use Gedmo\Mapping\Driver;
 use Gedmo\Mapping\Driver\File;
@@ -21,24 +13,10 @@ use Gedmo\Mapping\Driver\File;
  * extension.
  *
  * @author David Buchmann <mail@davidbu.ch>
- *
- * @deprecated since gedmo/doctrine-extensions 3.5, will be removed in version 4.0.
- *
- * @internal
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 class Yaml extends File implements Driver
 {
-    /**
-     * List of types which are valid for blameable
-     *
-     * @var string[]
-     */
-    private const VALID_TYPES = [
-        'one',
-        'string',
-        'int',
-    ];
-
     /**
      * File extension
      *
@@ -46,27 +24,41 @@ class Yaml extends File implements Driver
      */
     protected $_extension = '.dcm.yml';
 
+    /**
+     * List of types which are valid for blameable
+     *
+     * @var array
+     */
+    private $validTypes = [
+        'one',
+        'string',
+        'int',
+    ];
+
+    /**
+     * {@inheritdoc}
+     */
     public function readExtendedMetadata($meta, array &$config)
     {
-        $mapping = $this->_getMapping($meta->getName());
+        $mapping = $this->_getMapping($meta->name);
 
         if (isset($mapping['fields'])) {
             foreach ($mapping['fields'] as $field => $fieldMapping) {
                 if (isset($fieldMapping['gedmo']['blameable'])) {
                     $mappingProperty = $fieldMapping['gedmo']['blameable'];
                     if (!$this->isValidField($meta, $field)) {
-                        throw new InvalidMappingException("Field - [{$field}] type is not valid and must be 'string' or a reference in class - {$meta->getName()}");
+                        throw new InvalidMappingException("Field - [{$field}] type is not valid and must be 'string' or a reference in class - {$meta->name}");
                     }
-                    if (!isset($mappingProperty['on']) || !in_array($mappingProperty['on'], ['update', 'create', 'change'], true)) {
-                        throw new InvalidMappingException("Field - [{$field}] trigger 'on' is not one of [update, create, change] in class - {$meta->getName()}");
+                    if (!isset($mappingProperty['on']) || !in_array($mappingProperty['on'], ['update', 'create', 'change'])) {
+                        throw new InvalidMappingException("Field - [{$field}] trigger 'on' is not one of [update, create, change] in class - {$meta->name}");
                     }
 
-                    if ('change' === $mappingProperty['on']) {
+                    if ('change' == $mappingProperty['on']) {
                         if (!isset($mappingProperty['field'])) {
-                            throw new InvalidMappingException("Missing parameters on property - {$field}, field must be set on [change] trigger in class - {$meta->getName()}");
+                            throw new InvalidMappingException("Missing parameters on property - {$field}, field must be set on [change] trigger in class - {$meta->name}");
                         }
                         $trackedFieldAttribute = $mappingProperty['field'];
-                        $valueAttribute = $mappingProperty['value'] ?? null;
+                        $valueAttribute = isset($mappingProperty['value']) ? $mappingProperty['value'] : null;
                         if (is_array($trackedFieldAttribute) && null !== $valueAttribute) {
                             throw new InvalidMappingException('Blameable extension does not support multiple value changeset detection yet.');
                         }
@@ -86,18 +78,18 @@ class Yaml extends File implements Driver
                 if (isset($fieldMapping['gedmo']['blameable'])) {
                     $mappingProperty = $fieldMapping['gedmo']['blameable'];
                     if (!$meta->isSingleValuedAssociation($field)) {
-                        throw new InvalidMappingException("Association - [{$field}] is not valid, it must be a one-to-many relation or a string field - {$meta->getName()}");
+                        throw new InvalidMappingException("Association - [{$field}] is not valid, it must be a one-to-many relation or a string field - {$meta->name}");
                     }
-                    if (!isset($mappingProperty['on']) || !in_array($mappingProperty['on'], ['update', 'create', 'change'], true)) {
-                        throw new InvalidMappingException("Field - [{$field}] trigger 'on' is not one of [update, create, change] in class - {$meta->getName()}");
+                    if (!isset($mappingProperty['on']) || !in_array($mappingProperty['on'], ['update', 'create', 'change'])) {
+                        throw new InvalidMappingException("Field - [{$field}] trigger 'on' is not one of [update, create, change] in class - {$meta->name}");
                     }
 
-                    if ('change' === $mappingProperty['on']) {
+                    if ('change' == $mappingProperty['on']) {
                         if (!isset($mappingProperty['field'])) {
-                            throw new InvalidMappingException("Missing parameters on property - {$field}, field must be set on [change] trigger in class - {$meta->getName()}");
+                            throw new InvalidMappingException("Missing parameters on property - {$field}, field must be set on [change] trigger in class - {$meta->name}");
                         }
                         $trackedFieldAttribute = $mappingProperty['field'];
-                        $valueAttribute = $mappingProperty['value'] ?? null;
+                        $valueAttribute = isset($mappingProperty['value']) ? $mappingProperty['value'] : null;
                         if (is_array($trackedFieldAttribute) && null !== $valueAttribute) {
                             throw new InvalidMappingException('Blameable extension does not support multiple value changeset detection yet.');
                         }
@@ -111,10 +103,11 @@ class Yaml extends File implements Driver
                 }
             }
         }
-
-        return $config;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function _loadMappingFile($file)
     {
         return \Symfony\Component\Yaml\Yaml::parse(file_get_contents($file));
@@ -123,8 +116,8 @@ class Yaml extends File implements Driver
     /**
      * Checks if $field type is valid
      *
-     * @param ClassMetadata $meta
-     * @param string        $field
+     * @param \Doctrine\ODM\MongoDB\Mapping\ClassMetadata $meta
+     * @param string                                      $field
      *
      * @return bool
      */
@@ -132,6 +125,6 @@ class Yaml extends File implements Driver
     {
         $mapping = $meta->getFieldMapping($field);
 
-        return $mapping && in_array($mapping['type'], self::VALID_TYPES, true);
+        return $mapping && in_array($mapping['type'], $this->validTypes);
     }
 }

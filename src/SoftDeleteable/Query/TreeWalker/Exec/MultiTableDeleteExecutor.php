@@ -1,16 +1,9 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\SoftDeleteable\Query\TreeWalker\Exec;
 
 use Doctrine\DBAL\Platforms\AbstractPlatform;
-use Doctrine\ORM\Mapping\ClassMetadata;
+use Doctrine\ORM\Mapping\ClassMetadataInfo;
 use Doctrine\ORM\Query\AST\Node;
 use Doctrine\ORM\Query\Exec\MultiTableDeleteExecutor as BaseMultiTableDeleteExecutor;
 
@@ -20,27 +13,27 @@ use Doctrine\ORM\Query\Exec\MultiTableDeleteExecutor as BaseMultiTableDeleteExec
  *
  * @author Gustavo Falco <comfortablynumb84@gmail.com>
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
- *
- * @final since gedmo/doctrine-extensions 3.11
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 class MultiTableDeleteExecutor extends BaseMultiTableDeleteExecutor
 {
     /**
-     * @param array<string, mixed> $config
+     * {@inheritdoc}
      */
-    public function __construct(Node $AST, $sqlWalker, ClassMetadata $meta, AbstractPlatform $platform, array $config)
+    public function __construct(Node $AST, $sqlWalker, ClassMetadataInfo $meta, AbstractPlatform $platform, array $config)
     {
         parent::__construct($AST, $sqlWalker);
 
-        $sqlStatements = $this->_sqlStatements;
+        $reflProp = new \ReflectionProperty(get_class($this), '_sqlStatements');
+        $reflProp->setAccessible(true);
 
-        $quoteStrategy = $sqlWalker->getEntityManager()->getConfiguration()->getQuoteStrategy();
+        $sqlStatements = $reflProp->getValue($this);
 
         foreach ($sqlStatements as $index => $stmt) {
             $matches = [];
             preg_match('/DELETE FROM (\w+) .+/', $stmt, $matches);
 
-            if (isset($matches[1]) && $quoteStrategy->getTableName($meta, $platform) === $matches[1]) {
+            if (isset($matches[1]) && $meta->getQuotedTableName($platform) === $matches[1]) {
                 $sqlStatements[$index] = str_replace('DELETE FROM', 'UPDATE', $stmt);
                 $sqlStatements[$index] = str_replace(
                     'WHERE',
@@ -53,6 +46,6 @@ class MultiTableDeleteExecutor extends BaseMultiTableDeleteExecutor
             }
         }
 
-        $this->_sqlStatements = $sqlStatements;
+        $reflProp->setValue($this, $sqlStatements);
     }
 }

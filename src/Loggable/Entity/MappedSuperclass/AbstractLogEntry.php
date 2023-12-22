@@ -1,105 +1,78 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Loggable\Entity\MappedSuperclass;
 
-use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
-use Gedmo\Loggable\LogEntryInterface;
-use Gedmo\Loggable\Loggable;
 
 /**
- * @phpstan-template T of Loggable|object
- *
- * @phpstan-implements LogEntryInterface<T>
+ * Gedmo\Loggable\Entity\AbstractLog
  *
  * @ORM\MappedSuperclass
  */
-#[ORM\MappedSuperclass]
-abstract class AbstractLogEntry implements LogEntryInterface
+abstract class AbstractLogEntry
 {
     /**
-     * @var int|null
+     * @var int
      *
      * @ORM\Column(type="integer")
      * @ORM\Id
      * @ORM\GeneratedValue
      */
-    #[ORM\Column(type: Types::INTEGER)]
-    #[ORM\Id]
-    #[ORM\GeneratedValue]
     protected $id;
 
     /**
-     * @var string|null
-     *
-     * @phpstan-var self::ACTION_CREATE|self::ACTION_UPDATE|self::ACTION_REMOVE|null
+     * @var string
      *
      * @ORM\Column(type="string", length=8)
      */
-    #[ORM\Column(type: Types::STRING, length: 8)]
     protected $action;
 
     /**
-     * @var \DateTime|null
+     * @var \DateTime
      *
      * @ORM\Column(name="logged_at", type="datetime")
      */
-    #[ORM\Column(name: 'logged_at', type: Types::DATETIME_MUTABLE)]
     protected $loggedAt;
 
     /**
-     * @var string|null
+     * @var string
      *
      * @ORM\Column(name="object_id", length=64, nullable=true)
      */
-    #[ORM\Column(name: 'object_id', length: 64, nullable: true)]
     protected $objectId;
 
     /**
-     * @var string|null
-     *
-     * @phpstan-var class-string<T>|null
+     * @var string
      *
      * @ORM\Column(name="object_class", type="string", length=191)
      */
-    #[ORM\Column(name: 'object_class', type: Types::STRING, length: 191)]
     protected $objectClass;
 
     /**
-     * @var int|null
+     * @var int
      *
      * @ORM\Column(type="integer")
      */
-    #[ORM\Column(type: Types::INTEGER)]
     protected $version;
 
     /**
-     * @var array<string, mixed>|null
+     * @var array
      *
      * @ORM\Column(type="array", nullable=true)
      */
-    #[ORM\Column(type: Types::ARRAY, nullable: true)]
     protected $data;
 
     /**
-     * @var string|null
+     * @var string
      *
      * @ORM\Column(length=191, nullable=true)
      */
-    #[ORM\Column(length: 191, nullable: true)]
     protected $username;
 
     /**
      * Get id
      *
-     * @return int|null
+     * @return int
      */
     public function getId()
     {
@@ -108,6 +81,8 @@ abstract class AbstractLogEntry implements LogEntryInterface
 
     /**
      * Get action
+     *
+     * @return string
      */
     public function getAction()
     {
@@ -116,6 +91,8 @@ abstract class AbstractLogEntry implements LogEntryInterface
 
     /**
      * Set action
+     *
+     * @param string $action
      */
     public function setAction($action)
     {
@@ -124,6 +101,8 @@ abstract class AbstractLogEntry implements LogEntryInterface
 
     /**
      * Get object class
+     *
+     * @return string
      */
     public function getObjectClass()
     {
@@ -132,6 +111,8 @@ abstract class AbstractLogEntry implements LogEntryInterface
 
     /**
      * Set object class
+     *
+     * @param string $objectClass
      */
     public function setObjectClass($objectClass)
     {
@@ -140,6 +121,8 @@ abstract class AbstractLogEntry implements LogEntryInterface
 
     /**
      * Get object id
+     *
+     * @return string
      */
     public function getObjectId()
     {
@@ -158,6 +141,8 @@ abstract class AbstractLogEntry implements LogEntryInterface
 
     /**
      * Get username
+     *
+     * @return string
      */
     public function getUsername()
     {
@@ -176,6 +161,8 @@ abstract class AbstractLogEntry implements LogEntryInterface
 
     /**
      * Get loggedAt
+     *
+     * @return \DateTime
      */
     public function getLoggedAt()
     {
@@ -192,6 +179,8 @@ abstract class AbstractLogEntry implements LogEntryInterface
 
     /**
      * Get data
+     *
+     * @return array
      */
     public function getData()
     {
@@ -200,6 +189,8 @@ abstract class AbstractLogEntry implements LogEntryInterface
 
     /**
      * Set data
+     *
+     * @param array $data
      */
     public function setData($data)
     {
@@ -218,6 +209,8 @@ abstract class AbstractLogEntry implements LogEntryInterface
 
     /**
      * Get current version
+     *
+     * @return int
      */
     public function getVersion()
     {

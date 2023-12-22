@@ -1,16 +1,7 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Tree\Entity\Repository;
 
-use Doctrine\ORM\Query;
-use Doctrine\ORM\QueryBuilder;
 use Gedmo\Tool\Wrapper\EntityWrapper;
 use Gedmo\Tree\Strategy;
 
@@ -21,10 +12,7 @@ use Gedmo\Tree\Strategy;
  *
  * @author Gustavo Falco <comfortablynumb84@gmail.com>
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
- *
- * @template T of object
- *
- * @template-extends AbstractTreeRepository<T>
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 class MaterializedPathRepository extends AbstractTreeRepository
 {
@@ -33,11 +21,11 @@ class MaterializedPathRepository extends AbstractTreeRepository
      *
      * @param object $rootNode
      *
-     * @return QueryBuilder
+     * @return \Doctrine\ORM\QueryBuilder
      */
     public function getTreeQueryBuilder($rootNode = null)
     {
-        return $this->getChildrenQueryBuilder($rootNode, false, null, 'ASC', true);
+        return $this->getChildrenQueryBuilder($rootNode, false, null, 'asc', true);
     }
 
     /**
@@ -45,7 +33,7 @@ class MaterializedPathRepository extends AbstractTreeRepository
      *
      * @param object $rootNode
      *
-     * @return Query
+     * @return \Doctrine\ORM\Query
      */
     public function getTreeQuery($rootNode = null)
     {
@@ -57,26 +45,35 @@ class MaterializedPathRepository extends AbstractTreeRepository
      *
      * @param object $rootNode
      *
-     * @return array<int, object>
+     * @return array
      */
     public function getTree($rootNode = null)
     {
-        return $this->getTreeQuery($rootNode)->getResult();
+        return $this->getTreeQuery($rootNode)->execute();
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getRootNodesQueryBuilder($sortByField = null, $direction = 'asc')
     {
         return $this->getChildrenQueryBuilder(null, true, $sortByField, $direction);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getRootNodesQuery($sortByField = null, $direction = 'asc')
     {
         return $this->getRootNodesQueryBuilder($sortByField, $direction)->getQuery();
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getRootNodes($sortByField = null, $direction = 'asc')
     {
-        return $this->getRootNodesQuery($sortByField, $direction)->getResult();
+        return $this->getRootNodesQuery($sortByField, $direction)->execute();
     }
 
     /**
@@ -84,18 +81,18 @@ class MaterializedPathRepository extends AbstractTreeRepository
      *
      * @param object $node
      *
-     * @return QueryBuilder
+     * @return \Doctrine\ORM\QueryBuilder
      */
     public function getPathQueryBuilder($node)
     {
         $meta = $this->getClassMetadata();
-        $config = $this->listener->getConfiguration($this->getEntityManager(), $meta->getName());
+        $config = $this->listener->getConfiguration($this->_em, $meta->name);
         $alias = 'materialized_path_entity';
         $qb = $this->getQueryBuilder()
             ->select($alias)
             ->from($config['useObjectClass'], $alias);
 
-        $node = new EntityWrapper($node, $this->getEntityManager());
+        $node = new EntityWrapper($node, $this->_em);
         $nodePath = $node->getPropertyValue($config['path']);
         $paths = [];
         $nodePathLength = strlen($nodePath);
@@ -130,7 +127,7 @@ class MaterializedPathRepository extends AbstractTreeRepository
      *
      * @param object $node
      *
-     * @return Query
+     * @return \Doctrine\ORM\Query
      */
     public function getPathQuery($node)
     {
@@ -142,17 +139,20 @@ class MaterializedPathRepository extends AbstractTreeRepository
      *
      * @param object $node
      *
-     * @return array<int, object> list of Nodes in path
+     * @return array - list of Nodes in path
      */
     public function getPath($node)
     {
         return $this->getPathQuery($node)->getResult();
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getChildrenQueryBuilder($node = null, $direct = false, $sortByField = null, $direction = 'asc', $includeNode = false)
     {
         $meta = $this->getClassMetadata();
-        $config = $this->listener->getConfiguration($this->getEntityManager(), $meta->getName());
+        $config = $this->listener->getConfiguration($this->_em, $meta->name);
         $separator = addcslashes($config['path_separator'], '%');
         $alias = 'materialized_path_entity';
         $path = $config['path'];
@@ -162,8 +162,8 @@ class MaterializedPathRepository extends AbstractTreeRepository
         $expr = '';
         $includeNodeExpr = '';
 
-        if (is_a($node, $meta->getName())) {
-            $node = new EntityWrapper($node, $this->getEntityManager());
+        if (is_object($node) && $node instanceof $meta->name) {
+            $node = new EntityWrapper($node, $this->_em);
             $nodePath = $node->getPropertyValue($path);
             $expr = $qb->expr()->andx()->add(
                 $qb->expr()->like(
@@ -209,23 +209,32 @@ class MaterializedPathRepository extends AbstractTreeRepository
             $qb->orWhere('('.$includeNodeExpr.')');
         }
 
-        $orderByField = null === $sortByField ? $alias.'.'.$config['path'] : $alias.'.'.$sortByField;
-        $orderByDir = 'asc' === strtolower($direction) ? 'asc' : 'desc';
+        $orderByField = is_null($sortByField) ? $alias.'.'.$config['path'] : $alias.'.'.$sortByField;
+        $orderByDir = 'asc' === $direction ? 'asc' : 'desc';
         $qb->orderBy($orderByField, $orderByDir);
 
         return $qb;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getChildrenQuery($node = null, $direct = false, $sortByField = null, $direction = 'asc', $includeNode = false)
     {
         return $this->getChildrenQueryBuilder($node, $direct, $sortByField, $direction, $includeNode)->getQuery();
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getChildren($node = null, $direct = false, $sortByField = null, $direction = 'asc', $includeNode = false)
     {
-        return $this->getChildrenQuery($node, $direct, $sortByField, $direction, $includeNode)->getResult();
+        return $this->getChildrenQuery($node, $direct, $sortByField, $direction, $includeNode)->execute();
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getNodesHierarchyQueryBuilder($node = null, $direct = false, array $options = [], $includeNode = false)
     {
         $sortBy = [
@@ -240,28 +249,39 @@ class MaterializedPathRepository extends AbstractTreeRepository
         return $this->getChildrenQueryBuilder($node, $direct, $sortBy['field'], $sortBy['dir'], $includeNode);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getNodesHierarchyQuery($node = null, $direct = false, array $options = [], $includeNode = false)
     {
         return $this->getNodesHierarchyQueryBuilder($node, $direct, $options, $includeNode)->getQuery();
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getNodesHierarchy($node = null, $direct = false, array $options = [], $includeNode = false)
     {
         $meta = $this->getClassMetadata();
-        $config = $this->listener->getConfiguration($this->getEntityManager(), $meta->getName());
+        $config = $this->listener->getConfiguration($this->_em, $meta->name);
         $path = $config['path'];
 
         $nodes = $this->getNodesHierarchyQuery($node, $direct, $options, $includeNode)->getArrayResult();
         usort(
             $nodes,
-            static fn (array $a, array $b): int => strcmp($a[$path], $b[$path])
+            function ($a, $b) use ($path) {
+                return strcmp($a[$path], $b[$path]);
+            }
         );
 
         return $nodes;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function validate()
     {
-        return Strategy::MATERIALIZED_PATH === $this->listener->getStrategy($this->getEntityManager(), $this->getClassMetadata()->name)->getName();
+        return Strategy::MATERIALIZED_PATH === $this->listener->getStrategy($this->_em, $this->getClassMetadata()->name)->getName();
     }
 }

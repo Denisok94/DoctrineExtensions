@@ -1,12 +1,5 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Mapping\Driver;
 
 use Gedmo\Mapping\Driver;
@@ -16,29 +9,28 @@ use Gedmo\Mapping\Driver;
  * extension mapping driver support
  *
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
- *
- * @final since gedmo/doctrine-extensions 3.11
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 class Chain implements Driver
 {
     /**
      * The default driver
+     *
+     * @var Driver|null
      */
-    private ?Driver $defaultDriver = null;
+    private $defaultDriver;
 
     /**
      * List of drivers nested
      *
-     * @var array<string, Driver>
+     * @var Driver[]
      */
-    private array $_drivers = [];
+    private $_drivers = [];
 
     /**
      * Add a nested driver.
      *
      * @param string $namespace
-     *
-     * @return void
      */
     public function addDriver(Driver $nestedDriver, $namespace)
     {
@@ -48,7 +40,7 @@ class Chain implements Driver
     /**
      * Get the array of nested drivers.
      *
-     * @return array<string, Driver>
+     * @return Driver[] $drivers
      */
     public function getDrivers()
     {
@@ -67,53 +59,44 @@ class Chain implements Driver
 
     /**
      * Set the default driver.
-     *
-     * @return void
      */
     public function setDefaultDriver(Driver $driver)
     {
         $this->defaultDriver = $driver;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function readExtendedMetadata($meta, array &$config)
     {
         foreach ($this->_drivers as $namespace => $driver) {
-            if (0 === strpos($meta->getName(), $namespace)) {
-                $extendedMetadata = $driver->readExtendedMetadata($meta, $config);
+            if (0 === strpos($meta->name, $namespace)) {
+                $driver->readExtendedMetadata($meta, $config);
 
-                if (\is_array($extendedMetadata)) {
-                    $config = $extendedMetadata;
-                }
-
-                // @todo: In the next major release remove the assignment to `$extendedMetadata`, the previous conditional
-                // block, uncomment the following line and replace the following return statement.
-                // return $driver->readExtendedMetadata($meta, $config);
-                return $config;
+                return;
             }
         }
 
         if (null !== $this->defaultDriver) {
-            $extendedMetadata = $this->defaultDriver->readExtendedMetadata($meta, $config);
+            $this->defaultDriver->readExtendedMetadata($meta, $config);
 
-            if (\is_array($extendedMetadata)) {
-                $config = $extendedMetadata;
-            }
-
-            // @todo: In the next major release remove the assignment to `$extendedMetadata`, the previous conditional
-            // block, uncomment the following line and replace the following return statement.
-            // return $this->defaultDriver->readExtendedMetadata($meta, $config);
-            return $config;
+            return;
         }
 
         // commenting it for customized mapping support, debugging of such cases might get harder
-        // throw new \Gedmo\Exception\UnexpectedValueException('Class ' . $meta->getName() . ' is not a valid entity or mapped super class.');
+        //throw new \Gedmo\Exception\UnexpectedValueException('Class ' . $meta->name . ' is not a valid entity or mapped super class.');
     }
 
     /**
      * Passes in the mapping read by original driver
+     *
+     * @param $driver
+     *
+     * @return void
      */
     public function setOriginalDriver($driver)
     {
-        // not needed here
+        //not needed here
     }
 }

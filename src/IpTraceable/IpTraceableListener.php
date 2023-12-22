@@ -1,15 +1,7 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\IpTraceable;
 
-use Doctrine\Persistence\Mapping\ClassMetadata;
 use Gedmo\AbstractTrackingListener;
 use Gedmo\Exception\InvalidArgumentException;
 use Gedmo\Mapping\Event\AdapterInterface;
@@ -19,8 +11,7 @@ use Gedmo\Mapping\Event\AdapterInterface;
  * IPs on creation and update.
  *
  * @author Pierre-Charles Bertineau <pc.bertineau@alterphp.com>
- *
- * @final since gedmo/doctrine-extensions 3.11
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 class IpTraceableListener extends AbstractTrackingListener
 {
@@ -32,7 +23,7 @@ class IpTraceableListener extends AbstractTrackingListener
     /**
      * Get the ipValue value to set on a ip field
      *
-     * @param ClassMetadata    $meta
+     * @param object           $meta
      * @param string           $field
      * @param AdapterInterface $eventAdapter
      *
@@ -46,11 +37,9 @@ class IpTraceableListener extends AbstractTrackingListener
     /**
      * Set a ip value to return
      *
-     * @param string|null $ip
+     * @param string $ip
      *
      * @throws InvalidArgumentException
-     *
-     * @return void
      */
     public function setIpValue($ip = null)
     {
@@ -61,6 +50,9 @@ class IpTraceableListener extends AbstractTrackingListener
         $this->ip = $ip;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function getNamespace()
     {
         return __NAMESPACE__;

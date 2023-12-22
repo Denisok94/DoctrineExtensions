@@ -1,25 +1,11 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\SoftDeleteable\Query\TreeWalker;
 
-use Doctrine\DBAL\Connection;
-use Doctrine\DBAL\Platforms\AbstractPlatform;
-use Doctrine\ORM\Mapping\ClassMetadata;
-use Doctrine\ORM\Mapping\QuoteStrategy;
 use Doctrine\ORM\Query\AST\DeleteClause;
 use Doctrine\ORM\Query\AST\DeleteStatement;
-use Doctrine\ORM\Query\Exec\AbstractSqlExecutor;
 use Doctrine\ORM\Query\Exec\SingleTableDeleteUpdateExecutor;
 use Doctrine\ORM\Query\SqlWalker;
-use Gedmo\Exception\RuntimeException;
-use Gedmo\Exception\UnexpectedValueException;
 use Gedmo\SoftDeleteable\Query\TreeWalker\Exec\MultiTableDeleteExecutor;
 use Gedmo\SoftDeleteable\SoftDeleteableListener;
 
@@ -30,85 +16,45 @@ use Gedmo\SoftDeleteable\SoftDeleteableListener;
  *
  * @author Gustavo Falco <comfortablynumb84@gmail.com>
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
- *
- * @final since gedmo/doctrine-extensions 3.11
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 class SoftDeleteableWalker extends SqlWalker
 {
-    /**
-     * @var Connection
-     *
-     * @deprecated to be removed in 4.0, use the `getConnection()` method instead.
-     */
     protected $conn;
-
-    /**
-     * @var AbstractPlatform
-     *
-     * @deprecated to be removed in 4.0, fetch the platform from the connection instead
-     */
     protected $platform;
-
-    /**
-     * @var SoftDeleteableListener
-     */
     protected $listener;
-
-    /**
-     * @var array<string, mixed>
-     */
     protected $configuration;
-
-    /**
-     * @var string|null
-     *
-     * @deprecated to be removed in 4.0, unused
-     */
     protected $alias;
-
-    /**
-     * @var string
-     */
     protected $deletedAtField;
-
-    /**
-     * @var ClassMetadata
-     */
     protected $meta;
 
     /**
-     * @var QuoteStrategy
+     * {@inheritdoc}
      */
-    private $quoteStrategy;
-
     public function __construct($query, $parserResult, array $queryComponents)
     {
         parent::__construct($query, $parserResult, $queryComponents);
 
         $this->conn = $this->getConnection();
-        $this->platform = $this->getConnection()->getDatabasePlatform();
+        $this->platform = $this->conn->getDatabasePlatform();
         $this->listener = $this->getSoftDeleteableListener();
-        $this->quoteStrategy = $this->getEntityManager()->getConfiguration()->getQuoteStrategy();
-
-        $this->extractComponents($this->getQueryComponents());
+        $this->extractComponents($queryComponents);
     }
 
     /**
-     * @return AbstractSqlExecutor
+     * {@inheritdoc}
      */
     public function getExecutor($AST)
     {
         switch (true) {
             case $AST instanceof DeleteStatement:
-                assert(class_exists($AST->deleteClause->abstractSchemaName));
-
                 $primaryClass = $this->getEntityManager()->getClassMetadata($AST->deleteClause->abstractSchemaName);
 
-                return $primaryClass->isInheritanceTypeJoined()
-                    ? new MultiTableDeleteExecutor($AST, $this, $this->meta, $this->getConnection()->getDatabasePlatform(), $this->configuration)
+                return ($primaryClass->isInheritanceTypeJoined())
+                    ? new MultiTableDeleteExecutor($AST, $this, $this->meta, $this->platform, $this->configuration)
                     : new SingleTableDeleteUpdateExecutor($AST, $this);
             default:
-                throw new UnexpectedValueException('SoftDeleteable walker should be used only on delete statement');
+                throw new \Gedmo\Exception\UnexpectedValueException('SoftDeleteable walker should be used only on delete statement');
         }
     }
 
@@ -120,43 +66,43 @@ class SoftDeleteableWalker extends SqlWalker
     public function walkDeleteClause(DeleteClause $deleteClause)
     {
         $em = $this->getEntityManager();
-
-        assert(class_exists($deleteClause->abstractSchemaName));
-
         $class = $em->getClassMetadata($deleteClause->abstractSchemaName);
         $tableName = $class->getTableName();
         $this->setSQLTableAlias($tableName, $tableName, $deleteClause->aliasIdentificationVariable);
+        $quotedTableName = $class->getQuotedTableName($this->platform);
+        $quotedColumnName = $class->getQuotedColumnName($this->deletedAtField, $this->platform);
 
-        $platform = $this->getConnection()->getDatabasePlatform();
+        $sql = 'UPDATE '.$quotedTableName.' SET '.$quotedColumnName.' = '.$this->platform->getCurrentTimestampSQL();
 
-        $quotedTableName = $this->quoteStrategy->getTableName($class, $platform);
-        $quotedColumnName = $this->quoteStrategy->getColumnName($this->deletedAtField, $class, $platform);
-
-        return 'UPDATE '.$quotedTableName.' SET '.$quotedColumnName.' = '.$platform->getCurrentTimestampSQL();
+        return $sql;
     }
 
     /**
      * Get the currently used SoftDeleteableListener
      *
-     * @throws RuntimeException if listener is not found
+     * @throws \Gedmo\Exception\RuntimeException - if listener is not found
+     *
+     * @return SoftDeleteableListener
      */
-    private function getSoftDeleteableListener(): SoftDeleteableListener
+    private function getSoftDeleteableListener()
     {
-        if (null === $this->listener) {
+        if (is_null($this->listener)) {
             $em = $this->getEntityManager();
 
-            foreach ($em->getEventManager()->getAllListeners() as $listeners) {
-                foreach ($listeners as $listener) {
+            foreach ($em->getEventManager()->getListeners() as $event => $listeners) {
+                foreach ($listeners as $hash => $listener) {
                     if ($listener instanceof SoftDeleteableListener) {
                         $this->listener = $listener;
-
-                        break 2;
+                        break;
                     }
+                }
+                if ($this->listener) {
+                    break;
                 }
             }
 
-            if (null === $this->listener) {
-                throw new RuntimeException('The SoftDeleteable listener could not be found.');
+            if (is_null($this->listener)) {
+                throw new \Gedmo\Exception\RuntimeException('The SoftDeleteable listener could not be found.');
             }
         }
 
@@ -166,15 +112,18 @@ class SoftDeleteableWalker extends SqlWalker
     /**
      * Search for components in the delete clause
      *
-     * @param array<string, array<string, mixed>> $queryComponents
+     * @return void
      */
-    private function extractComponents(array $queryComponents): void
+    private function extractComponents(array $queryComponents)
     {
         $em = $this->getEntityManager();
 
-        foreach ($queryComponents as $comp) {
+        foreach ($queryComponents as $alias => $comp) {
+            if (!isset($comp['metadata'])) {
+                continue;
+            }
             $meta = $comp['metadata'];
-            $config = $this->listener->getConfiguration($em, $meta->getName());
+            $config = $this->listener->getConfiguration($em, $meta->name);
             if ($config && isset($config['softDeleteable']) && $config['softDeleteable']) {
                 $this->configuration = $config;
                 $this->deletedAtField = $config['fieldName'];

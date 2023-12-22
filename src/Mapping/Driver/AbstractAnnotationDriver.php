@@ -1,74 +1,49 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Mapping\Driver;
 
-use Doctrine\Common\Annotations\Reader;
 use Doctrine\Persistence\Mapping\ClassMetadata;
-use Doctrine\Persistence\Mapping\Driver\MappingDriver;
 
 /**
  * This is an abstract class to implement common functionality
  * for extension annotation mapping drivers.
  *
- * @author Derek J. Lambert <dlambert@dereklambert.com>
+ * @author     Derek J. Lambert <dlambert@dereklambert.com>
+ * @license    MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 abstract class AbstractAnnotationDriver implements AnnotationDriverInterface
 {
     /**
      * Annotation reader instance
      *
-     * @var Reader|AttributeReader|object
-     *
-     * @todo Remove the support for the `object` type in the next major release.
+     * @var object
      */
     protected $reader;
 
     /**
      * Original driver if it is available
-     *
-     * @var MappingDriver
      */
-    protected $_originalDriver;
+    protected $_originalDriver = null;
 
     /**
      * List of types which are valid for extension
      *
-     * @var string[]
+     * @var array
      */
     protected $validTypes = [];
 
+    /**
+     * {@inheritdoc}
+     */
     public function setAnnotationReader($reader)
     {
-        if (!$reader instanceof Reader && !$reader instanceof AttributeReader) {
-            trigger_deprecation(
-                'gedmo/doctrine-extensions',
-                '3.11',
-                'Passing an object not implementing "%s" or "%s" as argument 1 to "%s()" is deprecated and'
-                .' will throw an "%s" error in version 4.0. Instance of "%s" given.',
-                Reader::class,
-                AttributeReader::class,
-                __METHOD__,
-                \TypeError::class,
-                get_class($reader)
-            );
-        }
-
         $this->reader = $reader;
     }
 
     /**
      * Passes in the mapping read by original driver
      *
-     * @param MappingDriver $driver
-     *
-     * @return void
+     * @param object $driver
      */
     public function setOriginalDriver($driver)
     {
@@ -76,31 +51,28 @@ abstract class AbstractAnnotationDriver implements AnnotationDriverInterface
     }
 
     /**
-     * @param ClassMetadata $meta
+     * @param object $meta
      *
      * @return \ReflectionClass
-     *
-     * @phpstan-return \ReflectionClass<object>
      */
     public function getMetaReflectionClass($meta)
     {
-        return $meta->getReflectionClass();
-    }
+        $class = $meta->getReflectionClass();
+        if (!$class) {
+            // based on recent doctrine 2.3.0-DEV maybe will be fixed in some way
+            // this happens when running annotation driver in combination with
+            // static reflection services. This is not the nicest fix
+            $class = new \ReflectionClass($meta->name);
+        }
 
-    /**
-     * @param array<string, mixed> $config
-     *
-     * @return void
-     */
-    public function validateFullMetadata(ClassMetadata $meta, array $config)
-    {
+        return $class;
     }
 
     /**
      * Checks if $field type is valid
      *
-     * @param ClassMetadata $meta
-     * @param string        $field
+     * @param object $meta
+     * @param string $field
      *
      * @return bool
      */
@@ -108,20 +80,20 @@ abstract class AbstractAnnotationDriver implements AnnotationDriverInterface
     {
         $mapping = $meta->getFieldMapping($field);
 
-        return $mapping && in_array($mapping['type'], $this->validTypes, true);
+        return $mapping && in_array($mapping['type'], $this->validTypes);
+    }
+
+    public function validateFullMetadata(ClassMetadata $meta, array $config)
+    {
     }
 
     /**
      * Try to find out related class name out of mapping
      *
-     * @param ClassMetadata $metadata the mapped class metadata
-     * @param string        $name     the related object class name
+     * @param ClassMetadata $metadata - the mapped class metadata
+     * @param $name - the related object class name
      *
-     * @return string related class name or empty string if does not exist
-     *
-     * @phpstan-param class-string|string $name
-     *
-     * @phpstan-return class-string|''
+     * @return string - related class name or empty string if does not exist
      */
     protected function getRelatedClassName($metadata, $name)
     {

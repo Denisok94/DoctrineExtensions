@@ -1,15 +1,7 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Sluggable\Mapping\Driver;
 
-use Doctrine\Persistence\Mapping\ClassMetadata;
 use Gedmo\Exception\InvalidMappingException;
 use Gedmo\Mapping\Driver\Xml as BaseXml;
 
@@ -21,17 +13,16 @@ use Gedmo\Mapping\Driver\Xml as BaseXml;
  *
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
  * @author Miha Vrhovnik <miha.vrhovnik@gmail.com>
- *
- * @internal
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 class Xml extends BaseXml
 {
     /**
      * List of types which are valid for slug and sluggable fields
      *
-     * @var string[]
+     * @var array
      */
-    private const VALID_TYPES = [
+    private $validTypes = [
         'string',
         'text',
         'integer',
@@ -40,51 +31,32 @@ class Xml extends BaseXml
         'citext',
     ];
 
+    /**
+     * {@inheritdoc}
+     */
     public function readExtendedMetadata($meta, array &$config)
     {
         /**
          * @var \SimpleXmlElement
          */
-        $xml = $this->_getMapping($meta->getName());
+        $xml = $this->_getMapping($meta->name);
 
         if (isset($xml->field)) {
             foreach ($xml->field as $mapping) {
                 $field = $this->_getAttribute($mapping, 'name');
-                $config = $this->buildFieldConfiguration($meta, $field, $mapping, $config);
+                $this->buildFieldConfiguration($meta, $field, $mapping, $config);
             }
         }
 
         if (isset($xml->{'attribute-overrides'})) {
             foreach ($xml->{'attribute-overrides'}->{'attribute-override'} as $mapping) {
                 $field = $this->_getAttribute($mapping, 'name');
-                $config = $this->buildFieldConfiguration($meta, $field, $mapping->field, $config);
+                $this->buildFieldConfiguration($meta, $field, $mapping->field, $config);
             }
         }
-
-        return $config;
     }
 
-    /**
-     * Checks if $field type is valid as Sluggable field
-     *
-     * @param ClassMetadata $meta
-     * @param string        $field
-     *
-     * @return bool
-     */
-    protected function isValidField($meta, $field)
-    {
-        $mapping = $meta->getFieldMapping($field);
-
-        return $mapping && in_array($mapping['type'], self::VALID_TYPES, true);
-    }
-
-    /**
-     * @param array<string, mixed> $config
-     *
-     * @return array<string, mixed>
-     */
-    private function buildFieldConfiguration(ClassMetadata $meta, string $field, \SimpleXMLElement $mapping, array $config): array
+    private function buildFieldConfiguration($meta, $field, \SimpleXMLElement $mapping, array &$config)
     {
         /**
          * @var \SimpleXmlElement
@@ -97,15 +69,15 @@ class Xml extends BaseXml
              */
             $slug = $mapping->slug;
             if (!$this->isValidField($meta, $field)) {
-                throw new InvalidMappingException("Cannot use field - [{$field}] for slug storage, type is not valid and must be 'string' in class - {$meta->getName()}");
+                throw new InvalidMappingException("Cannot use field - [{$field}] for slug storage, type is not valid and must be 'string' in class - {$meta->name}");
             }
             $fields = array_map('trim', explode(',', (string) $this->_getAttribute($slug, 'fields')));
             foreach ($fields as $slugField) {
                 if (!$meta->hasField($slugField)) {
-                    throw new InvalidMappingException("Unable to find slug [{$slugField}] as mapped property in entity - {$meta->getName()}");
+                    throw new InvalidMappingException("Unable to find slug [{$slugField}] as mapped property in entity - {$meta->name}");
                 }
                 if (!$this->isValidField($meta, $slugField)) {
-                    throw new InvalidMappingException("Cannot use field - [{$slugField}] for slug storage, type is not valid and must be 'string' or 'text' in class - {$meta->getName()}");
+                    throw new InvalidMappingException("Cannot use field - [{$slugField}] for slug storage, type is not valid and must be 'string' or 'text' in class - {$meta->name}");
                 }
             }
 
@@ -146,17 +118,30 @@ class Xml extends BaseXml
                 'handlers' => $handlers,
             ];
             if (!$meta->isMappedSuperclass && $meta->isIdentifier($field) && !$config['slugs'][$field]['unique']) {
-                throw new InvalidMappingException("Identifier field - [{$field}] slug must be unique in order to maintain primary key in class - {$meta->getName()}");
+                throw new InvalidMappingException("Identifier field - [{$field}] slug must be unique in order to maintain primary key in class - {$meta->name}");
             }
             $ubase = $config['slugs'][$field]['unique_base'];
             if (false === $config['slugs'][$field]['unique'] && $ubase) {
                 throw new InvalidMappingException("Slug annotation [unique_base] can not be set if unique is unset or 'false'");
             }
             if ($ubase && !$meta->hasField($ubase) && !$meta->hasAssociation($ubase)) {
-                throw new InvalidMappingException("Unable to find [{$ubase}] as mapped property in entity - {$meta->getName()}");
+                throw new InvalidMappingException("Unable to find [{$ubase}] as mapped property in entity - {$meta->name}");
             }
         }
+    }
 
-        return $config;
+    /**
+     * Checks if $field type is valid as Sluggable field
+     *
+     * @param object $meta
+     * @param string $field
+     *
+     * @return bool
+     */
+    protected function isValidField($meta, $field)
+    {
+        $mapping = $meta->getFieldMapping($field);
+
+        return $mapping && in_array($mapping['type'], $this->validTypes);
     }
 }

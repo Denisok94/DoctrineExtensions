@@ -1,17 +1,9 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Uploadable\Event;
 
 use Doctrine\Common\EventArgs;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\Persistence\ObjectManager;
 use Gedmo\Uploadable\FileInfo\FileInfoInterface;
 use Gedmo\Uploadable\UploadableListener;
 
@@ -20,20 +12,21 @@ use Gedmo\Uploadable\UploadableListener;
  *
  * @author Gustavo Falco <comfortablynumb84@gmail.com>
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 abstract class UploadableBaseEventArgs extends EventArgs
 {
     /**
      * The instance of the Uploadable listener that fired this event
+     *
+     * @var \Gedmo\Uploadable\UploadableListener
      */
-    private UploadableListener $uploadableListener;
-
-    private EntityManagerInterface $em;
+    private $uploadableListener;
 
     /**
-     * @todo Check if this property must be removed, as it is not used.
+     * @var \Doctrine\ORM\EntityManagerInterface
      */
-    private array $config = [];
+    private $em;
 
     /**
      * The Uploadable entity
@@ -45,19 +38,18 @@ abstract class UploadableBaseEventArgs extends EventArgs
     /**
      * The configuration of the Uploadable extension for this entity class
      *
-     * @todo Check if this property must be removed, as it is never set.
-     *
      * @var array
      */
     private $extensionConfiguration;
 
-    private FileInfoInterface $fileInfo;
+    /**
+     * @var \Gedmo\Uploadable\FileInfo\FileInfoInterface
+     */
+    private $fileInfo;
 
     /**
-     * Is the file being created, updated or removed?
-     * This value can be: CREATE, UPDATE or DELETE
-     *
-     * @var string
+     * @var string - Is the file being created, updated or removed?
+     *             This value can be: CREATE, UPDATE or DELETE
      */
     private $action;
 
@@ -78,7 +70,7 @@ abstract class UploadableBaseEventArgs extends EventArgs
     /**
      * Retrieve the associated listener
      *
-     * @return UploadableListener
+     * @return \Gedmo\Uploadable\UploadableListener
      */
     public function getListener()
     {
@@ -88,24 +80,9 @@ abstract class UploadableBaseEventArgs extends EventArgs
     /**
      * Retrieve associated EntityManager
      *
-     * @return EntityManagerInterface
+     * @return \Doctrine\ORM\EntityManagerInterface
      */
     public function getEntityManager()
-    {
-        @trigger_error(sprintf(
-            '"%s()" is deprecated since gedmo/doctrine-extensions 3.14 and will be removed in version 4.0.',
-            __METHOD__
-        ), E_USER_DEPRECATED);
-
-        return $this->em;
-    }
-
-    /**
-     * Retrieve associated EntityManager
-     *
-     * @return ObjectManager
-     */
-    public function getObjectManager()
     {
         return $this->em;
     }
@@ -116,21 +93,6 @@ abstract class UploadableBaseEventArgs extends EventArgs
      * @return object
      */
     public function getEntity()
-    {
-        @trigger_error(sprintf(
-            '"%s()" is deprecated since gedmo/doctrine-extensions 3.14 and will be removed in version 4.0.',
-            __METHOD__
-        ), E_USER_DEPRECATED);
-
-        return $this->entity;
-    }
-
-    /**
-     * Retrieve associated Object
-     *
-     * @return object
-     */
-    public function getObject()
     {
         return $this->entity;
     }
@@ -148,7 +110,7 @@ abstract class UploadableBaseEventArgs extends EventArgs
     /**
      * Retrieve the FileInfo associated with this entity.
      *
-     * @return FileInfoInterface
+     * @return \Gedmo\Uploadable\FileInfo\FileInfoInterface
      */
     public function getFileInfo()
     {

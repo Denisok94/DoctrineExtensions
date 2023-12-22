@@ -1,71 +1,59 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Translator;
 
 /**
- * Object for managing translations.
+ * Entity/Document translation interface.
  *
- * @author Konstantin Kudryashov <ever.zet@gmail.com>
+ * @author  Konstantin Kudryashov <ever.zet@gmail.com>
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 interface TranslationInterface
 {
     /**
-     * Set the translatable item.
+     * Set translatable
      *
-     * @param object $translatable
-     *
-     * @return void
+     * @param string $translatable
      */
     public function setTranslatable($translatable);
 
     /**
-     * Get the translatable item.
+     * Get translatable
      *
-     * @return object
+     * @return string
      */
     public function getTranslatable();
 
     /**
-     * Set the translation locale.
+     * Set locale
      *
      * @param string $locale
-     *
-     * @return void
      */
     public function setLocale($locale);
 
     /**
-     * Get the translation locale.
+     * Get locale
      *
      * @return string
      */
     public function getLocale();
 
     /**
-     * Set the translated property.
+     * Set property
      *
      * @param string $property
-     *
-     * @return void
      */
     public function setProperty($property);
 
     /**
-     * Get the translated property.
+     * Get property
      *
      * @return string
      */
     public function getProperty();
 
     /**
-     * Set the translation value.
+     * Set value
      *
      * @param string $value
      *
@@ -74,7 +62,7 @@ interface TranslationInterface
     public function setValue($value);
 
     /**
-     * Get the translation value.
+     * Get value
      *
      * @return string
      */

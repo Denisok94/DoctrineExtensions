@@ -1,39 +1,32 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Tool\Wrapper;
 
 use Doctrine\ODM\MongoDB\DocumentManager;
-use Doctrine\ODM\MongoDB\Mapping\ClassMetadata;
-use ProxyManager\Proxy\GhostObjectInterface;
+use Doctrine\ODM\MongoDB\Proxy\Proxy;
 
 /**
  * Wraps document or proxy for more convenient
  * manipulation
  *
- * @phpstan-extends AbstractWrapper<ClassMetadata>
- *
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
- *
- * @final since gedmo/doctrine-extensions 3.11
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 class MongoDocumentWrapper extends AbstractWrapper
 {
     /**
      * Document identifier
+     *
+     * @var mixed
      */
-    private ?string $identifier = null;
+    private $identifier;
 
     /**
      * True if document or proxy is loaded
+     *
+     * @var bool
      */
-    private bool $initialized = false;
+    private $initialized = false;
 
     /**
      * Wrap document
@@ -47,6 +40,9 @@ class MongoDocumentWrapper extends AbstractWrapper
         $this->meta = $dm->getClassMetadata(get_class($this->object));
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getPropertyValue($property)
     {
         $this->initialize();
@@ -54,11 +50,17 @@ class MongoDocumentWrapper extends AbstractWrapper
         return $this->meta->getReflectionProperty($property)->getValue($this->object);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function getRootObjectName()
     {
         return $this->meta->rootDocumentName;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function setPropertyValue($property, $value)
     {
         $this->initialize();
@@ -67,20 +69,21 @@ class MongoDocumentWrapper extends AbstractWrapper
         return $this;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function hasValidIdentifier()
     {
         return (bool) $this->getIdentifier();
     }
 
     /**
-     * @param bool $flatten
-     *
-     * @return string
+     * {@inheritdoc}
      */
-    public function getIdentifier($single = true, $flatten = false)
+    public function getIdentifier($single = true)
     {
         if (!$this->identifier) {
-            if ($this->object instanceof GhostObjectInterface) {
+            if ($this->object instanceof Proxy) {
                 $uow = $this->om->getUnitOfWork();
                 if ($uow->isInIdentityMap($this->object)) {
                     $this->identifier = (string) $uow->getDocumentIdentifier($this->object);
@@ -96,37 +99,38 @@ class MongoDocumentWrapper extends AbstractWrapper
         return $this->identifier;
     }
 
-    public function isEmbeddedAssociation($field)
-    {
-        return $this->getMetadata()->isSingleValuedEmbed($field);
-    }
-
     /**
      * Initialize the document if it is proxy
      * required when is detached or not initialized
-     *
-     * @return void
      */
     protected function initialize()
     {
         if (!$this->initialized) {
-            if ($this->object instanceof GhostObjectInterface) {
+            if ($this->object instanceof Proxy) {
                 $uow = $this->om->getUnitOfWork();
-                if (!$this->object->isProxyInitialized()) {
-                    $persister = $uow->getDocumentPersister($this->meta->getName());
+                if (!$this->object->__isInitialized__) {
+                    $persister = $uow->getDocumentPersister($this->meta->name);
                     $identifier = null;
                     if ($uow->isInIdentityMap($this->object)) {
                         $identifier = $this->getIdentifier();
                     } else {
                         // this may not happen but in case
-                        $getIdentifier = \Closure::bind(fn () => $this->identifier, $this->object, get_class($this->object));
-
-                        $identifier = $getIdentifier();
+                        $reflProperty = new \ReflectionProperty($this->object, 'identifier');
+                        $reflProperty->setAccessible(true);
+                        $identifier = $reflProperty->getValue($this->object);
                     }
-                    $this->object->initializeProxy();
+                    $this->object->__isInitialized__ = true;
                     $persister->load($identifier, $this->object);
                 }
             }
         }
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function isEmbeddedAssociation($field)
+    {
+        return $this->getMetadata()->isSingleValuedEmbed($field);
     }
 }

@@ -1,33 +1,17 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\SoftDeleteable;
 
 use Doctrine\Common\EventArgs;
-use Doctrine\Common\EventManager;
-use Doctrine\ODM\MongoDB\DocumentManager;
 use Doctrine\ODM\MongoDB\UnitOfWork as MongoDBUnitOfWork;
-use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\Persistence\Event\LoadClassMetadataEventArgs;
-use Doctrine\Persistence\Mapping\ClassMetadata;
-use Doctrine\Persistence\ObjectManager;
 use Gedmo\Mapping\MappedEventSubscriber;
-use Gedmo\SoftDeleteable\Event\PostSoftDeleteEventArgs;
-use Gedmo\SoftDeleteable\Event\PreSoftDeleteEventArgs;
 
 /**
  * SoftDeleteable listener
  *
  * @author Gustavo Falco <comfortablynumb84@gmail.com>
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
- *
- * @final since gedmo/doctrine-extensions 3.11
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 class SoftDeleteableListener extends MappedEventSubscriber
 {
@@ -36,17 +20,17 @@ class SoftDeleteableListener extends MappedEventSubscriber
      *
      * @var string
      */
-    public const PRE_SOFT_DELETE = 'preSoftDelete';
+    const PRE_SOFT_DELETE = 'preSoftDelete';
 
     /**
      * Post soft-delete event
      *
      * @var string
      */
-    public const POST_SOFT_DELETE = 'postSoftDelete';
+    const POST_SOFT_DELETE = 'postSoftDelete';
 
     /**
-     * @return string[]
+     * {@inheritdoc}
      */
     public function getSubscribedEvents()
     {
@@ -65,42 +49,35 @@ class SoftDeleteableListener extends MappedEventSubscriber
     public function onFlush(EventArgs $args)
     {
         $ea = $this->getEventAdapter($args);
-        /** @var EntityManagerInterface|DocumentManager $om */
         $om = $ea->getObjectManager();
         $uow = $om->getUnitOfWork();
         $evm = $om->getEventManager();
 
-        // getScheduledDocumentDeletions
+        //getScheduledDocumentDeletions
         foreach ($ea->getScheduledObjectDeletions($uow) as $object) {
             $meta = $om->getClassMetadata(get_class($object));
-            $config = $this->getConfiguration($om, $meta->getName());
+            $config = $this->getConfiguration($om, $meta->name);
 
             if (isset($config['softDeleteable']) && $config['softDeleteable']) {
                 $reflProp = $meta->getReflectionProperty($config['fieldName']);
                 $oldValue = $reflProp->getValue($object);
                 $date = $ea->getDateValue($meta, $config['fieldName']);
 
-                if (isset($config['hardDelete']) && $config['hardDelete'] && $oldValue instanceof \DateTimeInterface && $oldValue <= $date) {
+                // Remove `$oldValue instanceof \DateTime` check when PHP version is bumped to >=5.5
+                if (isset($config['hardDelete']) && $config['hardDelete'] && ($oldValue instanceof \DateTime || $oldValue instanceof \DateTimeInterface) && $oldValue <= $date) {
                     continue; // want to hard delete
                 }
 
-                if ($evm->hasListeners(self::PRE_SOFT_DELETE)) {
-                    // @todo: in the next major remove check and only instantiate the event
-                    $preSoftDeleteEventArgs = $this->hasToDispatchNewEvent($evm, self::PRE_SOFT_DELETE, PreSoftDeleteEventArgs::class)
-                        ? new PreSoftDeleteEventArgs($object, $om)
-                        : $ea->createLifecycleEventArgsInstance($object, $om);
-
-                    $evm->dispatchEvent(
-                        self::PRE_SOFT_DELETE,
-                        $preSoftDeleteEventArgs
-                    );
-                }
+                $evm->dispatchEvent(
+                    self::PRE_SOFT_DELETE,
+                    $ea->createLifecycleEventArgsInstance($object, $om)
+                );
 
                 $reflProp->setValue($object, $date);
 
                 $om->persist($object);
                 $uow->propertyChanged($object, $config['fieldName'], $oldValue, $date);
-                if ($uow instanceof MongoDBUnitOfWork) {
+                if ($uow instanceof MongoDBUnitOfWork && !method_exists($uow, 'scheduleExtraUpdate')) {
                     $ea->recomputeSingleObjectChangeSet($uow, $meta, $object);
                 } else {
                     $uow->scheduleExtraUpdate($object, [
@@ -108,17 +85,10 @@ class SoftDeleteableListener extends MappedEventSubscriber
                     ]);
                 }
 
-                if ($evm->hasListeners(self::POST_SOFT_DELETE)) {
-                    // @todo: in the next major remove check and only instantiate the event
-                    $postSoftDeleteEventArgs = $this->hasToDispatchNewEvent($evm, self::POST_SOFT_DELETE, PostSoftDeleteEventArgs::class)
-                        ? new PostSoftDeleteEventArgs($object, $om)
-                        : $ea->createLifecycleEventArgsInstance($object, $om);
-
-                    $evm->dispatchEvent(
-                        self::POST_SOFT_DELETE,
-                        $postSoftDeleteEventArgs
-                    );
-                }
+                $evm->dispatchEvent(
+                    self::POST_SOFT_DELETE,
+                    $ea->createLifecycleEventArgsInstance($object, $om)
+                );
             }
         }
     }
@@ -126,47 +96,19 @@ class SoftDeleteableListener extends MappedEventSubscriber
     /**
      * Maps additional metadata
      *
-     * @param LoadClassMetadataEventArgs $eventArgs
-     *
-     * @phpstan-param LoadClassMetadataEventArgs<ClassMetadata<object>, ObjectManager> $eventArgs
-     *
      * @return void
      */
     public function loadClassMetadata(EventArgs $eventArgs)
     {
-        $this->loadMetadataForObjectClass($eventArgs->getObjectManager(), $eventArgs->getClassMetadata());
+        $ea = $this->getEventAdapter($eventArgs);
+        $this->loadMetadataForObjectClass($ea->getObjectManager(), $eventArgs->getClassMetadata());
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function getNamespace()
     {
         return __NAMESPACE__;
-    }
-
-    /** @param class-string $eventClass */
-    private function hasToDispatchNewEvent(EventManager $eventManager, string $eventName, string $eventClass): bool
-    {
-        foreach ($eventManager->getListeners($eventName) as $listener) {
-            $reflMethod = new \ReflectionMethod($listener, $eventName);
-
-            $parameters = $reflMethod->getParameters();
-
-            if (
-                1 !== count($parameters)
-                || !$parameters[0]->hasType()
-                || !$parameters[0]->getType() instanceof \ReflectionNamedType
-                || $eventClass !== $parameters[0]->getType()->getName()
-            ) {
-                @trigger_error(sprintf(
-                    'Type-hinting to something different than "%s" in "%s::%s()" is deprecated.',
-                    $eventClass,
-                    get_class($listener),
-                    $reflMethod->getName()
-                ), E_USER_DEPRECATED);
-
-                return false;
-            }
-        }
-
-        return true;
     }
 }

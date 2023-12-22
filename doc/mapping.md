@@ -1,17 +1,18 @@
-# Mapping extension for Doctrine
+# Mapping extension for Doctrine2
 
 **Mapping** extension makes it easy to map additional metadata for event listeners.
-It supports **Attribute**, **Xml** and **Annotation** drivers which will be chosen depending on
+It supports **Yaml**, **Xml** and **Annotation** drivers which will be chosen depending on
 currently used mapping driver for your domain objects. **Mapping** extension also
 provides abstraction layer of **EventArgs** to make it possible to use single listener
 for different object managers like **ODM** and **ORM**.
 
 Features:
 
-- Mapping drivers for annotation
+- Mapping drivers for annotation and yaml
 - Conventional extension points for metadata extraction and object manager abstraction
 
-- Public [Mapping repository](https://github.com/doctrine-extensions/DoctrineExtensions "Mapping extension on Github") is available on github
+- Public [Mapping repository](http://github.com/Atlantic18/DoctrineExtensions "Mapping extension on Github") is available on github
+- Last update date: **2012-01-02**
 
 This article will cover the basic installation and usage of **Mapping** extension
 
@@ -30,8 +31,8 @@ Content:
 
 ## Setup and autoloading
 
-Read the [documentation](./annotations.md#em-setup)
-or check the [example code](../example)
+Read the [documentation](http://github.com/Atlantic18/DoctrineExtensions/tree/main/doc/annotations.md#em-setup)
+or check the [example code](http://github.com/Atlantic18/DoctrineExtensions/tree/main/example)
 on how to setup and use the extensions in most optimized way.
 
 <a name="create-extension"></a>
@@ -55,7 +56,7 @@ project
 Now you can use any namespace autoloader class and register this namespace. We
 will use Doctrine\Common\ClassLoader for instance:
 
-```php
+``` php
 <?php
 // path is related to bootstrap.php location for example
 $classLoader = new \Doctrine\Common\ClassLoader('Extension', "vendor");
@@ -93,7 +94,7 @@ may not be useful since object will not know how to match the value.
 
 Edit **Annotations.php** file:
 
-```php
+``` php
 <?php
 // file: vendor/Extension/Encoder/Mapping/Annotations.php
 
@@ -110,7 +111,7 @@ final class Encode extends Annotation
 
 Edit **Annotation.php** driver file:
 
-```php
+``` php
 <?php
 // file: vendor/Extension/Encoder/Mapping/Driver/Annotation.php
 
@@ -169,7 +170,7 @@ class Annotation implements Driver
 
 **Note:** this version of listener will support only ORM Entities
 
-```php
+``` php
 <?php
 // file: vendor/Extension/Encoder/EncoderListener.php
 
@@ -251,7 +252,7 @@ with some fields to encode.
 
 ### Attaching the EncoderListener
 
-```php
+``` php
 <?php
 $evm = new \Doctrine\Common\EventManager();
 $encoderListener = new \Extension\Encoder\EncoderListener;
@@ -263,7 +264,7 @@ $evm->addEventSubscriber($encoderListener);
 
 ### Create an entity with some fields to encode
 
-```php
+``` php
 <?php
 namespace YourNamespace\Entity;
 
@@ -325,7 +326,7 @@ If you will try to create a new **User** you will get encoded fields in database
 
 Now the event adapter comes into play, lets slightly modify our listener:
 
-```php
+``` php
 <?php
 // file: vendor/Extension/Encoder/EncoderListener.php
 
@@ -448,7 +449,7 @@ from the extended ones.
 
 Create extended ORM event adapter:
 
-```php
+``` php
 <?php
 // file: vendor/Extension/Encoder/Mapping/Event/Adapter/ORM.php
 
@@ -467,7 +468,7 @@ class ORM extends BaseAdapterORM
 
 Create extended ODM event adapter:
 
-```php
+``` php
 <?php
 // file: vendor/Extension/Encoder/Mapping/Event/Adapter/ODM.php
 

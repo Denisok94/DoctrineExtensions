@@ -1,19 +1,9 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Loggable\Mapping\Driver;
 
-use Doctrine\ODM\MongoDB\Mapping\ClassMetadata as ClassMetadataODM;
 use Doctrine\Persistence\Mapping\ClassMetadata;
 use Gedmo\Exception\InvalidMappingException;
-use Gedmo\Mapping\Annotation\Loggable;
-use Gedmo\Mapping\Annotation\Versioned;
 use Gedmo\Mapping\Driver\AbstractAnnotationDriver;
 
 /**
@@ -24,31 +14,36 @@ use Gedmo\Mapping\Driver\AbstractAnnotationDriver;
  *
  * @author Boussekeyt Jules <jules.boussekeyt@gmail.com>
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
- *
- * @internal
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 class Annotation extends AbstractAnnotationDriver
 {
     /**
      * Annotation to define that this object is loggable
      */
-    public const LOGGABLE = Loggable::class;
+    const LOGGABLE = 'Gedmo\\Mapping\\Annotation\\Loggable';
 
     /**
      * Annotation to define that this property is versioned
      */
-    public const VERSIONED = Versioned::class;
+    const VERSIONED = 'Gedmo\\Mapping\\Annotation\\Versioned';
 
+    /**
+     * {@inheritdoc}
+     */
     public function validateFullMetadata(ClassMetadata $meta, array $config)
     {
-        if ($config && $meta instanceof ClassMetadataODM && is_array($meta->getIdentifier()) && count($meta->getIdentifier()) > 1) {
-            throw new InvalidMappingException("Loggable does not support composite identifiers in class - {$meta->getName()}");
+        if ($config && is_array($meta->identifier) && count($meta->identifier) > 1) {
+            throw new InvalidMappingException("Loggable does not support composite identifiers in class - {$meta->name}");
         }
         if (isset($config['versioned']) && !isset($config['loggable'])) {
-            throw new InvalidMappingException("Class must be annotated with Loggable annotation in order to track versioned fields in class - {$meta->getName()}");
+            throw new InvalidMappingException("Class must be annotated with Loggable annotation in order to track versioned fields in class - {$meta->name}");
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function readExtendedMetadata($meta, array &$config)
     {
         $class = $this->getMetaReflectionClass($meta);
@@ -73,30 +68,27 @@ class Annotation extends AbstractAnnotationDriver
             // versioned property
             if ($this->reader->getPropertyAnnotation($property, self::VERSIONED)) {
                 if (!$this->isMappingValid($meta, $field)) {
-                    throw new InvalidMappingException("Cannot apply versioning to field [{$field}] as it is collection in object - {$meta->getName()}");
+                    throw new InvalidMappingException("Cannot apply versioning to field [{$field}] as it is collection in object - {$meta->name}");
                 }
                 if (isset($meta->embeddedClasses[$field])) {
                     $this->inspectEmbeddedForVersioned($field, $config, $meta);
-
                     continue;
                 }
                 // fields cannot be overrided and throws mapping exception
-                if (!in_array($field, $config['versioned'] ?? [], true)) {
+                if (!(isset($config['versioned']) && in_array($field, $config['versioned']))) {
                     $config['versioned'][] = $field;
                 }
             }
         }
 
         if (!$meta->isMappedSuperclass && $config) {
-            if ($meta instanceof ClassMetadataODM && is_array($meta->getIdentifier()) && count($meta->getIdentifier()) > 1) {
-                throw new InvalidMappingException("Loggable does not support composite identifiers in class - {$meta->getName()}");
+            if (is_array($meta->identifier) && count($meta->identifier) > 1) {
+                throw new InvalidMappingException("Loggable does not support composite identifiers in class - {$meta->name}");
             }
             if ($this->isClassAnnotationInValid($meta, $config)) {
-                throw new InvalidMappingException("Class must be annotated with Loggable annotation in order to track versioned fields in class - {$meta->getName()}");
+                throw new InvalidMappingException("Class must be annotated with Loggable annotation in order to track versioned fields in class - {$meta->name}");
             }
         }
-
-        return $config;
     }
 
     /**
@@ -110,8 +102,6 @@ class Annotation extends AbstractAnnotationDriver
     }
 
     /**
-     * @param array<string, mixed> $config
-     *
      * @return bool
      */
     protected function isClassAnnotationInValid(ClassMetadata $meta, array &$config)
@@ -122,14 +112,14 @@ class Annotation extends AbstractAnnotationDriver
     /**
      * Searches properties of embedded object for versioned fields
      *
-     * @param array<string, mixed> $config
+     * @param string $field
      */
-    private function inspectEmbeddedForVersioned(string $field, array &$config, \Doctrine\ORM\Mapping\ClassMetadata $meta): void
+    private function inspectEmbeddedForVersioned($field, array &$config, \Doctrine\ORM\Mapping\ClassMetadata $meta)
     {
-        $class = new \ReflectionClass($meta->embeddedClasses[$field]['class']);
+        $сlass = new \ReflectionClass($meta->embeddedClasses[$field]['class']);
 
         // property annotations
-        foreach ($class->getProperties() as $property) {
+        foreach ($сlass->getProperties() as $property) {
             // versioned property
             if ($this->reader->getPropertyAnnotation($property, self::VERSIONED)) {
                 $embeddedField = $field.'.'.$property->getName();

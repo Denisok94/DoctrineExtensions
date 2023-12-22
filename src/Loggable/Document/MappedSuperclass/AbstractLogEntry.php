@@ -1,101 +1,76 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Loggable\Document\MappedSuperclass;
 
 use Doctrine\ODM\MongoDB\Mapping\Annotations as MongoODM;
-use Doctrine\ODM\MongoDB\Types\Type;
-use Gedmo\Loggable\LogEntryInterface;
-use Gedmo\Loggable\Loggable;
 
 /**
- * @phpstan-template T of Loggable|object
- *
- * @phpstan-implements LogEntryInterface<T>
+ * Gedmo\Loggable\Document\MappedSuperclass\AbstractLogEntry
  *
  * @MongoODM\MappedSuperclass
  */
-#[MongoODM\MappedSuperclass]
-abstract class AbstractLogEntry implements LogEntryInterface
+abstract class AbstractLogEntry
 {
     /**
-     * @var string|null
+     * @var int
      *
      * @MongoODM\Id
      */
-    #[MongoODM\Id]
     protected $id;
 
     /**
-     * @var string|null
-     *
-     * @phpstan-var self::ACTION_CREATE|self::ACTION_UPDATE|self::ACTION_REMOVE|null
+     * @var string
      *
      * @MongoODM\Field(type="string")
      */
-    #[MongoODM\Field(type: Type::STRING)]
     protected $action;
 
     /**
-     * @var \DateTime|null
+     * @var \DateTime
      *
      * @MongoODM\Field(type="date")
      */
-    #[MongoODM\Field(type: Type::DATE)]
     protected $loggedAt;
 
     /**
-     * @var string|null
+     * @var string
      *
      * @MongoODM\Field(type="string", nullable=true)
      */
-    #[MongoODM\Field(type: Type::STRING, nullable: true)]
     protected $objectId;
 
     /**
-     * @var string|null
-     *
-     * @phpstan-var class-string<T>|null
+     * @var string
      *
      * @MongoODM\Field(type="string")
      */
-    #[MongoODM\Field(type: Type::STRING)]
     protected $objectClass;
 
     /**
-     * @var int|null
+     * @var int
      *
      * @MongoODM\Field(type="int")
      */
-    #[MongoODM\Field(type: Type::INT)]
     protected $version;
 
     /**
-     * @var array<string, mixed>|null
+     * @var string
      *
      * @MongoODM\Field(type="hash", nullable=true)
      */
-    #[MongoODM\Field(type: Type::HASH, nullable: true)]
     protected $data;
 
     /**
-     * @var string|null
+     * @var string
      *
      * @MongoODM\Field(type="string", nullable=true)
      */
-    #[MongoODM\Field(type: Type::STRING, nullable: true)]
     protected $username;
 
     /**
      * Get id
      *
-     * @return string|null
+     * @return int
      */
     public function getId()
     {
@@ -105,7 +80,7 @@ abstract class AbstractLogEntry implements LogEntryInterface
     /**
      * Get action
      *
-     * @return string|null
+     * @return string
      */
     public function getAction()
     {
@@ -116,8 +91,6 @@ abstract class AbstractLogEntry implements LogEntryInterface
      * Set action
      *
      * @param string $action
-     *
-     * @return void
      */
     public function setAction($action)
     {
@@ -127,7 +100,7 @@ abstract class AbstractLogEntry implements LogEntryInterface
     /**
      * Get object class
      *
-     * @return string|null
+     * @return string
      */
     public function getObjectClass()
     {
@@ -138,8 +111,6 @@ abstract class AbstractLogEntry implements LogEntryInterface
      * Set object class
      *
      * @param string $objectClass
-     *
-     * @return void
      */
     public function setObjectClass($objectClass)
     {
@@ -149,7 +120,7 @@ abstract class AbstractLogEntry implements LogEntryInterface
     /**
      * Get object id
      *
-     * @return string|null
+     * @return string
      */
     public function getObjectId()
     {
@@ -160,8 +131,6 @@ abstract class AbstractLogEntry implements LogEntryInterface
      * Set object id
      *
      * @param string $objectId
-     *
-     * @return void
      */
     public function setObjectId($objectId)
     {
@@ -171,7 +140,7 @@ abstract class AbstractLogEntry implements LogEntryInterface
     /**
      * Get username
      *
-     * @return string|null
+     * @return string
      */
     public function getUsername()
     {
@@ -182,8 +151,6 @@ abstract class AbstractLogEntry implements LogEntryInterface
      * Set username
      *
      * @param string $username
-     *
-     * @return void
      */
     public function setUsername($username)
     {
@@ -193,7 +160,7 @@ abstract class AbstractLogEntry implements LogEntryInterface
     /**
      * Get loggedAt
      *
-     * @return \DateTime|null
+     * @return \DateTime
      */
     public function getLoggedAt()
     {
@@ -202,8 +169,6 @@ abstract class AbstractLogEntry implements LogEntryInterface
 
     /**
      * Set loggedAt to "now"
-     *
-     * @return void
      */
     public function setLoggedAt()
     {
@@ -213,7 +178,7 @@ abstract class AbstractLogEntry implements LogEntryInterface
     /**
      * Get data
      *
-     * @return array<string, mixed>|null
+     * @return array or null
      */
     public function getData()
     {
@@ -223,9 +188,7 @@ abstract class AbstractLogEntry implements LogEntryInterface
     /**
      * Set data
      *
-     * @param array<string, mixed> $data
-     *
-     * @return void
+     * @param array $data
      */
     public function setData($data)
     {
@@ -236,8 +199,6 @@ abstract class AbstractLogEntry implements LogEntryInterface
      * Set current version
      *
      * @param int $version
-     *
-     * @return void
      */
     public function setVersion($version)
     {
@@ -247,7 +208,7 @@ abstract class AbstractLogEntry implements LogEntryInterface
     /**
      * Get current version
      *
-     * @return int|null
+     * @return int
      */
     public function getVersion()
     {

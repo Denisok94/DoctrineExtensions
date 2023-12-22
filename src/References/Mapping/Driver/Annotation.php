@@ -1,21 +1,8 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\References\Mapping\Driver;
 
-use Doctrine\Common\Annotations\Reader;
-use Doctrine\Persistence\Mapping\Driver\MappingDriver;
-use Gedmo\Mapping\Annotation\ReferenceMany;
-use Gedmo\Mapping\Annotation\ReferenceManyEmbed;
-use Gedmo\Mapping\Annotation\ReferenceOne;
 use Gedmo\Mapping\Driver\AnnotationDriverInterface;
-use Gedmo\Mapping\Driver\AttributeReader;
 
 /**
  * This is an annotation mapping driver for References
@@ -24,63 +11,63 @@ use Gedmo\Mapping\Driver\AttributeReader;
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
  * @author Bulat Shakirzyanov <mallluhuct@gmail.com>
  * @author Jonathan H. Wage <jonwage@gmail.com>
- *
- * @internal
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 class Annotation implements AnnotationDriverInterface
 {
     /**
      * Annotation to mark field as reference to one
      */
-    public const REFERENCE_ONE = ReferenceOne::class;
+    const REFERENCE_ONE = 'Gedmo\\Mapping\\Annotation\\ReferenceOne';
 
     /**
      * Annotation to mark field as reference to many
      */
-    public const REFERENCE_MANY = ReferenceMany::class;
+    const REFERENCE_MANY = 'Gedmo\\Mapping\\Annotation\\ReferenceMany';
 
     /**
      * Annotation to mark field as reference to many
      */
-    public const REFERENCE_MANY_EMBED = ReferenceManyEmbed::class;
+    const REFERENCE_MANY_EMBED = 'Gedmo\\Mapping\\Annotation\\ReferenceManyEmbed';
 
-    /**
-     * @var array<string, self::REFERENCE_ONE|self::REFERENCE_MANY|self::REFERENCE_MANY_EMBED>
-     */
-    private const ANNOTATIONS = [
+    private $annotations = [
         'referenceOne' => self::REFERENCE_ONE,
         'referenceMany' => self::REFERENCE_MANY,
         'referenceManyEmbed' => self::REFERENCE_MANY_EMBED,
     ];
 
     /**
-     * original driver if it is available
-     *
-     * @var MappingDriver
-     */
-    protected $_originalDriver;
-
-    /**
      * Annotation reader instance
      *
-     * @var Reader|AttributeReader|object
+     * @var object
      */
     private $reader;
 
+    /**
+     * original driver if it is available
+     */
+    protected $_originalDriver = null;
+
+    /**
+     * {@inheritdoc}
+     */
     public function setAnnotationReader($reader)
     {
         $this->reader = $reader;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function readExtendedMetadata($meta, array &$config)
     {
         $class = $meta->getReflectionClass();
-        foreach (self::ANNOTATIONS as $key => $annotation) {
+        foreach ($this->annotations as $key => $annotation) {
             $config[$key] = [];
             foreach ($class->getProperties() as $property) {
-                if ($meta->isMappedSuperclass && !$property->isPrivate()
-                    || $meta->isInheritedField($property->name)
-                    || isset($meta->associationMappings[$property->name]['inherited'])
+                if ($meta->isMappedSuperclass && !$property->isPrivate() ||
+                    $meta->isInheritedField($property->name) ||
+                    isset($meta->associationMappings[$property->name]['inherited'])
                 ) {
                     continue;
                 }
@@ -97,12 +84,14 @@ class Annotation implements AnnotationDriverInterface
                 }
             }
         }
-
-        return $config;
     }
 
     /**
      * Passes in the mapping read by original driver
+     *
+     * @param $driver
+     *
+     * @return void
      */
     public function setOriginalDriver($driver)
     {

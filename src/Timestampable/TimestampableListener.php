@@ -1,12 +1,5 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Timestampable;
 
 use Doctrine\Persistence\Mapping\ClassMetadata;
@@ -18,8 +11,7 @@ use Gedmo\Timestampable\Mapping\Event\TimestampableAdapter;
  * dates on creation and update.
  *
  * @author Gediminas Morkevicius <gediminas.morkevicius@gmail.com>
- *
- * @final since gedmo/doctrine-extensions 3.11
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 class TimestampableListener extends AbstractTrackingListener
 {
@@ -35,6 +27,9 @@ class TimestampableListener extends AbstractTrackingListener
         return $eventAdapter->getDateValue($meta, $field);
     }
 
+    /**
+     * {@inheritdoc}
+     */
     protected function getNamespace()
     {
         return __NAMESPACE__;

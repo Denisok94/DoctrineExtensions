@@ -1,45 +1,24 @@
 <?php
 
-/*
- * This file is part of the Doctrine Behavioral Extensions package.
- * (c) Gediminas Morkevicius <gediminas.morkevicius@gmail.com> http://www.gediminasm.org
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
-
 namespace Gedmo\Translator;
 
 /**
  * Base translation class.
  *
- * @author Konstantin Kudryashov <ever.zet@gmail.com>
+ * @author  Konstantin Kudryashov <ever.zet@gmail.com>
+ * @license MIT License (http://www.opensource.org/licenses/mit-license.php)
  */
 abstract class Translation implements TranslationInterface
 {
-    /**
-     * @var object|null
-     */
     protected $translatable;
-
-    /**
-     * @var string|null
-     */
     protected $locale;
-
-    /**
-     * @var string|null
-     */
     protected $property;
-
-    /**
-     * @var string|null
-     */
     protected $value;
 
     /**
      * Set translatable
      *
-     * @param object $translatable
+     * @param string $translatable
      */
     public function setTranslatable($translatable)
     {
@@ -49,7 +28,7 @@ abstract class Translation implements TranslationInterface
     /**
      * Get translatable
      *
-     * @return object|null
+     * @return string
      */
     public function getTranslatable()
     {
@@ -69,7 +48,7 @@ abstract class Translation implements TranslationInterface
     /**
      * Get locale
      *
-     * @return string|null
+     * @return string
      */
     public function getLocale()
     {
@@ -89,7 +68,7 @@ abstract class Translation implements TranslationInterface
     /**
      * Get property
      *
-     * @return string|null
+     * @return string
      */
     public function getProperty()
     {
@@ -113,7 +92,7 @@ abstract class Translation implements TranslationInterface
     /**
      * Get value
      *
-     * @return string|null
+     * @return string
      */
     public function getValue()
     {
