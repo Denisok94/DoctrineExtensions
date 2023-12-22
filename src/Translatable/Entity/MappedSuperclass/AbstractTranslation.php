@@ -52,9 +52,6 @@ abstract class AbstractTranslation
      *
      * @ORM\Column(type="text", nullable=true)
      */
-e=true)
-     */
-    #[ORM\Column(type: Types::TEXT, nullable: true)]
     protected $content;
 
     /**
